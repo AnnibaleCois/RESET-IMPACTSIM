@@ -1,4 +1,66 @@
-.Rproj.user
+# R history and session data
 .Rhistory
 .RData
+.Rapp.history
 .Ruserdata
+.Rproj.user/
+
+# Rendered README preview
+README.html
+
+
+# RStudio project files (optional: keep .Rproj if you want to share the project setup)
+*.Rproj
+
+# Environment and secrets
+.Renviron
+.env
+*.env
+secrets.yml
+config.yml
+
+# Shiny deployment artifacts
+rsconnect/
+.httr-oauth
+
+# renv (keep renv.lock and activate.R, ignore the library)
+renv/library/
+renv/local/
+renv/cellar/
+renv/lock/
+renv/python/
+renv/sandbox/
+renv/staging/
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+*~
+.DS_Store
+Thumbs.db
+
+# Rendered / cached output
+*_cache/
+*_files/
+/.quarto/
+*.knit.md
+*.utf8.md
+.Rproj.user
+
+# Local data and outputs (adjust to your project)
+data/raw/
+data/private/
+*.csv.gz
+*.sqlite
+*.sqlite3
+*.rds
+
+# Testing / coverage
+tests/testthat/_snaps/*.new.*
+covr_report/
+
+# Package build artifacts (if your app is structured as a package, e.g. golem)
+*.tar.gz
+*.Rcheck/
+docs/

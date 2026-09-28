@@ -9,7 +9,8 @@ server <- function(input, output, session) {
 
   params <- reactiveVal(template)
   
-  # Scenario table editing
+  # SCENARIO TABLE EDITING
+  
   output$param_tbl <- renderDT({
     datatable(
       params(), rownames = FALSE, selection = "none",
@@ -26,7 +27,7 @@ server <- function(input, output, session) {
     if (is.na(val) || val < 0 || val > MAXMULT) {
       showNotification(paste0("Multipliers must be numbers between 0 and ", MAXMULT), type = "warning")
     } else {
-      p[info$row, info$col + 1] <- val    # DT columns are 0-based with rownames = FALSE
+      p[info$row, info$col + 1] <- val    
     }
     params(p)
     replaceData(proxy, p, resetPaging = FALSE, rownames = FALSE)
@@ -70,7 +71,7 @@ server <- function(input, output, session) {
     content  = function(file) write.csv(params(), file, row.names = FALSE)
   )
   
-  # Run simulation
+  # RUN SIMULATION
   
   run_label <- reactiveVal(NULL)
   res <- reactiveVal(NULL)
@@ -96,7 +97,8 @@ server <- function(input, output, session) {
   })
   
   
-  # Totals
+  # TOTALS 
+  
   output$totals <- renderUI({
     d <- res()
     m <- paste0(input$variable, "_", measures)
@@ -129,7 +131,8 @@ server <- function(input, output, session) {
     }
   })
 
-  # Chart
+  # CHART 
+  
     output$plot <- renderPlotly({
     m <- paste0(input$variable, "_", input$measure)
     d <- res(); req(d, m %in% names(d))
@@ -176,8 +179,8 @@ server <- function(input, output, session) {
         }
       }  
     ggplotly(p, tooltip = c("x", "y", "fill")) |>
-      layout(legend = list(orientation = "h", y = -0.15)) |>   # horizontal legend below
-      config(displaylogo = FALSE)                              # hide plotly logo
+      layout(legend = list(orientation = "h", y = -0.15)) |>  
+      config(displaylogo = FALSE)                             
     
   })
   
@@ -188,7 +191,7 @@ server <- function(input, output, session) {
       div(class = "tab-footer-left", txt)
     })
     
-  # Table
+  # TABLE
     
   output$res_tbl <- renderDT({
     d <- res(); req(d)
@@ -201,7 +204,7 @@ server <- function(input, output, session) {
     content  = function(file) write.csv(res(), file, row.names = FALSE)
   )
   
-  # About & Help
+  # ABOUT & HELP
   
   observeEvent(input$show_help, {
     showModal(modalDialog(
@@ -292,21 +295,24 @@ server <- function(input, output, session) {
         
         h4("Contact"),
         p("For questions, feedback or bug reports, please contact",
-          a(href = "mailto:you@example.org", "you@example.org"),
+          a(href = "mailto:annibale.cois@uct.ac.za", "annibale.cois@uct.ac.za"),
           "or open an issue on the",
-          a(href = "https://github.com/your-org/your-repo", "GitHub repository", target = "_blank"),
+          a(href = "https://github.com/AnnibaleCois/RESET-IMPACTSIM", "GitHub repository", target = "_blank"),
           "."),
         
         h4("Citation"),
         p("If you use this app or its results, please cite:"),
         tags$blockquote(
-          "[Author(s)] ([Year]). [App/Project title]. [Version/URL]."
+          "[Annibale Cois ([Year]). [App/Project title]. [Version/URL]."
         ),
         
         h4("License"),
+        
+        p(
+          a(href="https://opensource.org/licenses/MIT", img(src="https://img.shields.io/badge/License-MIT-yellow.svg"), alt="License: MIT")
+        ),
         p("This app is released under the [license name] license. See the",
-          a(href = "https://github.com/your-org/your-repo/blob/main/LICENSE", "LICENSE file", target = "_blank"),
-          "for details.")
+          a(href = "https://github.com/AnnibaleCois/RESET-IMPACTSIM/LICENSE", "LICENSE file", target = "_blank"), "for details.")
       ),
       easyClose = TRUE,
       footer = modalButton("Close"),

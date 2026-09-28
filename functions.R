@@ -235,6 +235,7 @@ edata <- function(scenario, r0, recalibrate, data1, data2) {
   cf[,c("mu")] <- cf[,c("mu")] * cf$cons
   cf[,c("beta")] <- cf[,c("beta")] / cf$cons
   cf[,c("pdrink")] <- cf[,c("pdrink")] * cf$curr
+  cf[,c("pbing")] <- cf[,c("pbing")] * cf$bing
   
   R <- sum(cf$pdrink*cf$mu*cf$pop)/sum(data$pdrink*data$mu*data$pop)
   
@@ -249,6 +250,7 @@ edata <- function(scenario, r0, recalibrate, data1, data2) {
     cf[,c("mu")] <- cf[,c("mu")] * cf$cons
     cf[,c("beta")] <- cf[,c("beta")] / cf$cons
     cf[,c("pdrink")] <- cf[,c("pdrink")] * cf$curr
+    cf[,c("pbing")] <- cf[,c("pbing")] * cf$bing
   } else {
     ra = 1
   }
