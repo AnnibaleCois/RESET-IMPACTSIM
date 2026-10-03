@@ -45,21 +45,30 @@ ui <- page_sidebar(
       accordion_panel(
         "Scenario", value = "scenario", icon = icon("sliders"),
         helpText(
-          strong("curr"),": prevalence of drinkers", 
+          "Multiplier for consumption variables within each demographic stratum",
+          br(), br(),
+          tags$ul(
+          tags$li(strong("PREV"),": prevalence of drinkers"), 
+          tags$li(strong("HED"),": prevalence of heavy episodic drinking among drinkers"),
+          tags$li(strong("LR"),": average daily consumption among low risk drinkers"),
+          tags$li(strong("MR"),": average daily consumption among moderate risk drinkers"),
+          tags$li(strong("HR"),": average daily consumption among high risk drinkers"),
+          tags$li(strong("VR"),": average daily consumption among very high risk drinkers"),
+          ),
+          "Double-click a cell to edit."),
+          DTOutput("param_tbl"),        
           br(),
-          strong("bing"),": prevalence of binge drinking among drinkers",
-          br(),
-          strong("cons"),": average daily consumption among dribkers"),
-          DTOutput("param_tbl"),
           fluidRow(
             column(6, numericInput("set_all", "Set column to value", 1, min = 0, max = MAXMULT, step = 0.05)),
             column(6, selectInput("set_col", "…for column", c("all", mult_cols)))
           ),
+
         div(
           actionButton("apply_all", "Apply", class = "btn-secondary btn-sm"),
           actionButton("reset", "Reset to 1", class = "btn-outline-secondary btn-sm"),
           downloadButton("dl_params", "Save params", class = "btn-outline-secondary btn-sm")
         ),
+        br(),
     fileInput("upload", "Load params (CSV)", accept = ".csv")
       )
     ),
@@ -68,7 +77,7 @@ ui <- page_sidebar(
   uiOutput("totals"),
   navset_card_tab(
     nav_panel(
-      "Chart",
+      "Burden - Chart",
       icon = icon("chart-column"),
       layout_columns(
         col_widths = c(2,2,2,2,2,2),
@@ -84,10 +93,19 @@ ui <- page_sidebar(
       div(class = "tab-footer", footercontent)
     ),
     nav_panel(
-      "Table",
+      "Burden - Table",
       icon = icon("table"),
       downloadButton("dl_res", "Download results"),
       DTOutput("res_tbl"),
+      div(class = "tab-footer", footercontent)
+    ),
+    nav_panel(
+      "Exposure",
+      icon = icon("wine-glass"),
+      h5("Simulated changes in drinking patterns"),
+      uiOutput("cons_summary_cards"),
+      # h5("Risk category distribution by age and gender: observed vs simulated"),
+      # plotlyOutput("risk_shift_by_group", height = "900px"),
       div(class = "tab-footer", footercontent)
     )
   )

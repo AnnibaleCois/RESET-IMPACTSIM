@@ -174,11 +174,7 @@ pif <- function(pifdata, bdm, bdf, lb, ub, gl, radjust) {
   pLB_cf <- pgamma(lb, alpha_cf, beta_cf)
   ncc_cf <- pUB_cf - pLB_cf
   pdb_cf <- pdrink_cf * pbing_cf
-  # pUB_o <- pgamma(ub, alpha_o, beta_o);  pLB_cf <- pgamma(lb, alpha_o, beta_o)
-  # pLB_o <- pgamma(lb, alpha_o, beta_o)
-  # ncc_o <- pUB_o - pLB_o
-  # pdb_o <- pdrink_o * pbing_o
-  
+
   # epbat only matters for binge rows, but is cheap to do vectorised
   epbat_cf <- pmin((pUB_cf - pgamma(ebd, alpha_cf, beta_cf)) * pdrink_cf / ncc_cf, pdb_cf)
   # epbat_o <- pmin((pUB_o - pgamma(ebd, alpha_o, beta_o)) * pdrink_o / ncc_o, pdb_o)
@@ -206,22 +202,13 @@ pif <- function(pifdata, bdm, bdf, lb, ub, gl, radjust) {
       paf_cf <- paf2(cause[i], outcome[i], gender[i], agecat[i], pform_cf[i], pdrink_cf[i], pdb_cf[i],
                      epbat_cf[i], ebd[i], alpha_cf[i], beta_cf[i], ncc_cf[i], lb, ub,
                      rrfd, rrnb, rrbd, vint1, vint2, par1 = r_pfd[[i]](), par2 = prisk[[i]](), par3 = pbinge_risk[[i]](), dat = d, gl = gl)
-      # paf_o <- paf2(cause[i], outcome[i], gender[i], agecat[i], pform_o[i], pdrink_o[i], pdb_o[i],
-      #                epbat_o[i], ebd[i], alpha_o[i], beta_o[i], ncc_o[i], lb, ub,
-      #                rrfd, rrnb, rrbd, vint1, vint2, par1 = r_pfd[[i]](), par2 = prisk[[i]](), par3 = pbinge_risk[[i]](), dat = d, gl = gl)
-
     } else {
       paf_cf <- paf1(cause[i], outcome[i], gender[i], agecat[i], pform_cf[i], pdrink_cf[i], pdb_cf[i],
                      alpha_cf[i], beta_cf[i], ncc_cf[i], lb, ub, rrfd, rrnb, vint1,
                      par1 = r_pfd[[i]](), par2 = prisk[[i]](), dat = d, gl = gl)
-      # paf_o <- paf1(cause[i], outcome[i], gender[i], agecat[i], pform_o[i], pdrink_o[i], pdb_o[i],
-      #                alpha_o[i], beta_o[i], ncc_o[i], lb, ub, rrfd, rrnb, vint1,
-      #                par1 = r_pfd[[i]](), par2 = prisk[[i]](), dat = d, gl = gl)
     }
-   # out[i] <- 1 - (1 - paf_o) / (1 - paf_cf)
     out[i] <- 1 - (1 - paf[i]) / (1 - paf_cf)
   }
-  
   out
 }
 
@@ -229,11 +216,35 @@ pif <- function(pifdata, bdm, bdf, lb, ub, gl, radjust) {
 # WRAPPERS                                                                                                                                                                     #
 ################################################################################################################################################################################
 
-edata <- function(scenario, r0, recalibrate, data1, data2) {
+refit_gamma <- function(alpha, beta, breaks, mult) {
+  stopifnot(length(mult) == length(breaks) - 1, !is.unsorted(breaks))
+  lo <- breaks[-length(breaks)]
+  hi <- breaks[-1]
+  
+  # Share of the population in each range (useful sanity check)
+  prop <- pgamma(hi, alpha, beta) - pgamma(lo, alpha, beta)
+  
+  # Partial first and second moments within each range
+  m1 <- (alpha / beta) * (pgamma(hi, alpha + 1, beta) - pgamma(lo, alpha + 1, beta))
+  m2 <- (alpha * (alpha + 1) / beta^2) * (pgamma(hi, alpha + 2, beta) - pgamma(lo, alpha + 2, beta))
+  
+  k <- mult
+  new_mean <- sum(k   * m1)
+  new_var  <- sum(k^2 * m2) - new_mean^2
+  
+  out <- c(alpha = new_mean^2/new_var, beta = new_mean/new_var, mean = new_mean)
+  return(out)
+}
+
+edata <- function(scenario, r0, recalibrate, data1, data2, rbreaks) {
   data <- rbind(data1, data2)
   cf <- left_join(data, scenario)
-  cf[,c("mu")] <- cf[,c("mu")] * cf$cons
-  cf[,c("beta")] <- cf[,c("beta")] / cf$cons
+  for (i in c(1:nrow(cf))) {
+    regamma <- refit_gamma(alpha = cf[i,]$alpha, beta = cf[i,]$beta, breaks = rbreaks[,cf[i,]$gender], mult = cf[i,c("Low_risk","Moderate_risk","High_risk","Very_high_risk")])
+    cf[i,c("mu")] <- regamma["mean"]
+    cf[i,c("alpha")] <- regamma["alpha"]
+    cf[i,c("beta")] <- regamma["beta"]
+  }
   cf[,c("pdrink")] <- cf[,c("pdrink")] * cf$curr
   cf[,c("pbing")] <- cf[,c("pbing")] * cf$bing
   
@@ -244,11 +255,15 @@ edata <- function(scenario, r0, recalibrate, data1, data2) {
     if (recalibrate == "curr") {
       scenario$curr <- scenario$curr*ra
     } else {
-      scenario$cons <- scenario$cons*ra
+      scenario[, c("Low_risk","Moderate_risk","High_risk","Very_high_risk")] <- scenario[, c("Low_risk","Moderate_risk","High_risk","Very_high_risk")]*ra
     }
     cf <- left_join(data, scenario)
-    cf[,c("mu")] <- cf[,c("mu")] * cf$cons
-    cf[,c("beta")] <- cf[,c("beta")] / cf$cons
+    for (i in c(1:nrow(cf))) {
+      regamma <- refit_gamma(alpha = cf[i,]$alpha, beta = cf[i,]$beta, breaks = rbreaks[,cf[i,]$gender], mult = cf[i,c("Low_risk","Moderate_risk","High_risk","Very_high_risk")])
+      cf[i,c("mu")] <- regamma["mean"]
+      cf[i,c("alpha")] <- regamma["alpha"]
+      cf[i,c("beta")] <- regamma["beta"]
+    }
     cf[,c("pdrink")] <- cf[,c("pdrink")] * cf$curr
     cf[,c("pbing")] <- cf[,c("pbing")] * cf$bing
   } else {
@@ -261,11 +276,17 @@ edata <- function(scenario, r0, recalibrate, data1, data2) {
   
 }  # GENERATE ALTERNATIVE EXPOSURES AND CONSOLIDATE ANALYSIS DATASET
 
-odata <- function(scenario, r0, recalibrate, bdm, bdf, lb, ub, data1, data2, data3, gl, burden) {
-  edat <- edata(scenario = scenario, r0 = r0, recalibrate = recalibrate, data1 = data1, data2 = data2)
+
+odata <- function(scenario, r0, recalibrate, bdm, bdf, lb, ub, data1, data2, data3, gl, burden, rbreaks) {
+  edat <- edata(scenario = scenario, r0 = r0, recalibrate = recalibrate, data1 = data1, data2 = data2, rbreaks = rbreaks)
   pifout <- pif(pifdata = edat$expdata, bdm = bdm, bdf = bdf, lb = lb, ub = ub, gl = gl, radjust = edat$r*edat$ra)
+  X <- edat$expdata[, c("gender","agecat","alpha_cf","beta_cf","pdrink_cf","pbing_cf")]
+  X <- X[!duplicated(X),]
   outdata <- cbind(edat$expdata, pif = pifout) 
-  eyll <- cbind(data3, outdata %>% arrange(metric, gender, agecat) %>% dplyr::slice(1:nrow(data3)) %>% dplyr::select(alpha_cf,beta_cf,pdrink_cf,pform_cf,pbing_cf,mu_cf,curr,bing,cons,pif))  
+  eyll <- cbind(data3, outdata %>% arrange(metric, gender, agecat) %>% dplyr::slice(1:nrow(data3)) %>% dplyr::select(alpha_cf,beta_cf,pdrink_cf,pform_cf,pbing_cf,mu_cf,
+                                                                                                                     curr,bing,
+                                                                                                                     Low_risk,Moderate_risk,High_risk,Very_high_risk,
+                                                                                                                     pif))  
   outdata <- rbind(outdata, eyll) %>% arrange(metric, gender, agecat) 
   if (burden == "gbd") {
     outdata$bod <- outdata$bod2
@@ -274,12 +295,11 @@ odata <- function(scenario, r0, recalibrate, bdm, bdf, lb, ub, data1, data2, dat
   outdata$vbod <- outdata$bod*outdata$pif 
   outdata <- outdata[, c("gender","agecat","cat1","cat2","cause","metric","bod","abod","vbod")] 
   outdata[,c("bod","abod","vbod")] <- round(outdata[,c("bod","abod","vbod")],0)
-  loutdata <- outdata %>%
-    pivot_wider(
-      names_from = metric,
-      values_from = c(bod, abod, vbod)
-    ) %>%
-    mutate(bod_DALY =  bod_YLD + bod_YLL, abod_DALY = abod_YLD + abod_YLL, vbod_DALY = vbod_YLD + vbod_YLL) 
+  loutdata <- list(
+    outd = outdata %>% pivot_wider(names_from = metric, values_from = c(bod, abod, vbod)) %>% mutate(bod_DALY =  bod_YLD + bod_YLL, abod_DALY = abod_YLD + abod_YLL, vbod_DALY = vbod_YLD + vbod_YLL),
+    shiftexp = X,
+    R = edat$r*edat$ra
+  ) 
   return(loutdata)
   
 }  # CALCULATE PIFS, VBOD

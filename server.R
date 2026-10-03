@@ -10,10 +10,26 @@ server <- function(input, output, session) {
   params <- reactiveVal(template)
   
   # SCENARIO TABLE EDITING
-  
+ 
   output$param_tbl <- renderDT({
+    sketch <- htmltools::withTags(table(
+      class = "display",
+      thead(
+        tr(
+          th(rowspan = 2, "Gender"),
+          th(rowspan = 2, "Age"),
+          th(rowspan = 2, "PREV"),
+          th(rowspan = 2, "HED"),
+          th(colspan = 4, "Consumption", style = "text-align: center;")
+        ),
+        tr(
+          th("LR"), th("MR"), th("HR"), th("VR")
+        )
+      )
+    ))
+    
     datatable(
-      params(), rownames = FALSE, selection = "none",
+      params(), rownames = FALSE, selection = "none", container = sketch,
       editable = list(target = "cell", disable = list(columns = c(0, 1))),
       options = list(dom = "t", pageLength = 12, ordering = FALSE)
     )
@@ -53,12 +69,13 @@ server <- function(input, output, session) {
                    error = function(e) NULL)
     ok <- !is.null(up) && all(c("gender", "agecat", mult_cols) %in% names(up)) &&
       nrow(up) == nrow(template)
-    in_range <- ok && all(vapply(up[mult_cols], function(x) is.numeric(x) && all(x >= 0 & x <= 1, na.rm = FALSE), logical(1)))
+    in_range <- ok && all(vapply(up[c(mult_cols)], function(x)
+      is.numeric(x) && all(x >= 0 & x <= 1, na.rm = FALSE), logical(1)))
     if (ok && !isTRUE(in_range)) {
-      showNotification(paste0("All multipliers in the CSV must be numbers between 0 and ", MAXMULT), type = "error")
+      showNotification("All multipliers in the CSV must be numbers between 0 and 1.", type = "error")
     } else if (!ok) {
       showNotification(sprintf("CSV needs columns gender, agecat, %s and %d rows.",
-                               paste(mult_cols, collapse = ", "), nrow(template)),
+                               paste(c(mult_cols), collapse = ", "), nrow(template)),
                        type = "error")
     } else {
       up <- up[, c("gender", "agecat", mult_cols)]
@@ -80,7 +97,7 @@ server <- function(input, output, session) {
     withProgress(message = "Running simulation…", value = 0.5, {
       out <- tryCatch(
         odata(scenario = params(), r0 = input$R0, recalibrate = input$RECALIBRATE, bdm = BDM, bdf = BDF, lb = LB, ub = UB, data1 = DATA1, data2 = DATA2, data3 = DATA3, gl = GL, 
-              burden = input$source),
+              burden = input$source, rbreaks = RBREAKS),
         error = function(e) {
           showNotification(paste("odata() failed:", conditionMessage(e)),
                            type = "error", duration = NULL)
@@ -96,12 +113,12 @@ server <- function(input, output, session) {
     
   })
   
-  
   # TOTALS 
   
   output$totals <- renderUI({
-    d <- res()
-    m <- paste0(input$variable, "_", measures)
+    d <- res()$outd
+    #m <- paste0(input$variable, "_", measures)
+    m <- paste0("vbod", "_", measures)
     
     if (is.null(d)) {
       tot <- c("-","-","-","-")
@@ -109,7 +126,7 @@ server <- function(input, output, session) {
       layout_columns(
         fill = FALSE,
         !!!lapply(names(tot), function(m) {
-          title <- strsplit(m, "_")[[1]][2]
+          title <- paste0("AVOIDABLE ",strsplit(m, "_")[[1]][2],"S")
           value_box(title = title,
                     value = "-",
                     theme = value_box_theme(bg = valueboxcolors[title])
@@ -121,7 +138,7 @@ server <- function(input, output, session) {
       layout_columns(
         fill = FALSE,
         !!!lapply(names(tot), function(m) {
-        title <- strsplit(m, "_")[[1]][2]
+        title <- paste0("AVOIDABLE ",strsplit(m, "_")[[1]][2],"S")
         value_box(title = title,
                   value = format(round(tot[[m]]), big.mark = "\u2009"),
                   theme = value_box_theme(bg = valueboxcolors[title])
@@ -135,7 +152,8 @@ server <- function(input, output, session) {
   
     output$plot <- renderPlotly({
     m <- paste0(input$variable, "_", input$measure)
-    d <- res(); req(d, m %in% names(d))
+    d <- res()$outd
+    req(d, m %in% names(d))
     dis <- ifelse(input$cat != "none", input$cat, NULL)
     top <- d |>
       group_by(.data[[dis]]) |>
@@ -194,7 +212,8 @@ server <- function(input, output, session) {
   # TABLE
     
   output$res_tbl <- renderDT({
-    d <- res(); req(d)
+    d <- res()$outd
+    req(d)
     datatable(d, rownames = FALSE, filter = "top") |>
       formatRound(intersect(measures, names(d)), 0)
   })
@@ -203,6 +222,109 @@ server <- function(input, output, session) {
     filename = function() "avoidable_burden.csv",
     content  = function(file) write.csv(res(), file, row.names = FALSE)
   )
+  
+  # CONSUMPTION SUMMARY 
+  
+  risk_category_props <- function(alpha, beta, gender) {
+    bounds <- t(RBREAKS[gender][2:5,1])
+    diff(c(0, pgamma(bounds, shape = alpha, rate = beta)))
+  } # proportion of drinkers in each risk category, from Gamma(alpha, beta)
+  
+  cons_summary <- reactive({
+    d <- res()$shiftexp
+    req(d)
+    before_mat <- t(mapply(risk_category_props, BASELINE_EXPOSURE$alpha, BASELINE_EXPOSURE$beta, BASELINE_EXPOSURE$gender))
+    colnames(before_mat) <- mult_cols[3:6]
+    merged <- dplyr::left_join(BASELINE_EXPOSURE, d, by = c("gender", "agecat"))
+    after_mat <- t(mapply(risk_category_props, merged$alpha_cf, merged$beta_cf, merged$gender))
+    colnames(after_mat) <- mult_cols[3:6]
+    list(meta = BASELINE_EXPOSURE[c("gender", "agecat", "pdrink")], before = before_mat, after = after_mat)
+  })
+  
+  output$cons_summary_cards <- renderUI({
+    p <- params()
+    cols <- c(mult_cols)
+    avg_reduction <- sapply(p[cols], function(x) mean(x) - 1)
+    reduction <- rep("", length(avg_reduction))
+    for (i in c(1:length(avg_reduction))) {
+      if(avg_reduction[i]== 0) {
+        reduction[i] <- "unchanged"
+      } else {
+        reduction[i] <- paste0(round(avg_reduction[i]*100,1),"%")
+      }
+    }
+    names(reduction) <- cols
+    card_titles <- c(
+      curr           = "Prevalence of drinkers",
+      bing           = "Proportion of binge drinkers among drinkers",
+      Low_risk       = "Average consumption among low risk drinkers",
+      Moderate_risk  = "Average consumption among moderate risk drinkers",
+      High_risk      = "Average consumption among high risk drinkers",
+      Very_high_risk = "Average consumption among very high risk drinkers"
+    )
+    
+    if (!is.null(res())) {
+      totred = round((res()$R-1)*100,1)
+    if (totred !=0) {
+      ltotred <- paste0(totred,"%")
+    } else {
+      ltotred <- "unchanged"
+    }
+    } else {
+      ltotred <- "unchanged"
+    }
+    
+    tags$div(
+    tags$ul(
+      lapply(names(avg_reduction), function(cn) {
+        tags$li(sprintf("%s: %s", card_titles[[cn]], reduction[[cn]]))
+      })
+    ),
+    br(),
+    tags$ul(
+      tags$li(sprintf("%s: %s", "Total alcohol consumption", ltotred))
+    )
+    )
+  })
+  
+  # output$risk_shift_by_group <- renderPlotly({
+  #   cs <- cons_summary()
+  #   
+  #   print(cs$before)
+  #   print(cs$after)
+  #   
+  #   to_long <- function(mat, meta, label) {
+  #     as.data.frame(mat) |>
+  #       bind_cols(meta) |>
+  #       tidyr::pivot_longer(all_of(risk_cols), names_to = "risk_category", values_to = "prop") |>
+  #       mutate(period = label)
+  #   }
+  #   
+  #   plot_d <- bind_rows(
+  #     to_long(cs$before, cs$meta[c("gender", "agecat")], "Before"),
+  #     to_long(cs$after,  cs$meta[c("gender", "agecat")], "After")
+  #   ) |>
+  #     mutate(period = factor(period, levels = c("Before", "After")),
+  #            risk_category = factor(risk_category, levels = risk_cols, labels = c("Low risk","Moderate risk","High risk","Very high risk")),
+  #            tooltip = sprintf("%s<br>%s: %s", period, risk_category, scales::percent(prop, accuracy = 0.1)))
+  #   p <- ggplot(plot_d, aes(period, prop, fill = risk_category, text = tooltip)) +
+  #     geom_col(position = "fill") +
+  #     facet_grid(agecat ~ gender) +
+  #     scale_y_continuous(labels = scales::percent) +
+  #     scale_fill_manual(values = c(
+  #       `Low risk`       = "#2E8B57",   # green
+  #       `Moderate risk`  = "#F4C430",   # amber
+  #       `High risk`      = "#E8732A",   # orange
+  #       `Very high risk` = "#C0392B"    # red
+  #     )) +
+  #     labs(x = NULL, y = "Proportion of drinkers", fill = "Risk category") +
+  #     theme_minimal(base_size = 11) +
+  #     theme(strip.text.y = element_text(angle = 0), legend.position = "top", legend.direction = "horizontal") +
+  #     scale_x_discrete(labels = c("Observed","Simulated"))
+  #   
+  #   ggplotly(p, height = 900, tooltip = "text") |> config(displaylogo = FALSE)
+  # })
+  
   
   # ABOUT & HELP
   
@@ -281,7 +403,7 @@ server <- function(input, output, session) {
       tagList(
         h4("About"),
         
-        p("This app was developed by [Your Name], [Affiliation],",
+        p("This app was developed by [Name], [Affiliation],",
           "as part of [Project name / study name]."),
         
         h4("Methodology"),
@@ -319,6 +441,7 @@ server <- function(input, output, session) {
       size = "l"
     ))
   })
+
   
 }
 
