@@ -119,6 +119,8 @@ server <- function(input, output, session) {
     d <- res()$outd
     #m <- paste0(input$variable, "_", measures)
     m <- paste0("vbod", "_", measures)
+    m1 <- paste0("abod", "_", measures)
+    m2 <- paste0("bod", "_", measures)
     
     if (is.null(d)) {
       tot <- c("-","-","-","-")
@@ -135,12 +137,24 @@ server <- function(input, output, session) {
       )
     } else {
       tot <- colSums(d[, intersect(m, names(d)), drop = FALSE], na.rm = TRUE)
+      tot1 <- colSums(d[, intersect(m1, names(d)), drop = FALSE], na.rm = TRUE)       
+      tot2 <- colSums(d[, intersect(m2, names(d)), drop = FALSE], na.rm = TRUE) 
+      tot3 <- round(tot/tot1*100,1)
+      names(tot1) <- names(tot)
+      names(tot2) <- names(tot)
+      names(tot3) <- names(tot)
       layout_columns(
         fill = FALSE,
         !!!lapply(names(tot), function(m) {
         title <- paste0("AVOIDABLE ",strsplit(m, "_")[[1]][2],"S")
         value_box(title = title,
-                  value = format(round(tot[[m]]), big.mark = "\u2009"),
+                  #value = format(round(tot[[m]]), big.mark = "\u2009"),
+                  value = tagList(
+                          span(format(round(tot[[m]]), big.mark = "\u2009")),
+                          span(paste0("Total burden: ",tot2[[m]]), style = "font-size: 30%; opacity: 0.8; "),
+                          span(paste0("Attributable burden: ",tot1[[m]]), style = "font-size: 30%; opacity: 0.8; "),
+                          span(paste0("Avoidable burden [%]: ", sprintf("%.1f",round(tot[[m]]/tot1[[m]]*100,1))), style = "font-size: 30%; opacity: 0.8; ")
+                  ),
                   theme = value_box_theme(bg = valueboxcolors[title])
         )
       })
@@ -287,45 +301,6 @@ server <- function(input, output, session) {
     )
   })
   
-  # output$risk_shift_by_group <- renderPlotly({
-  #   cs <- cons_summary()
-  #   
-  #   print(cs$before)
-  #   print(cs$after)
-  #   
-  #   to_long <- function(mat, meta, label) {
-  #     as.data.frame(mat) |>
-  #       bind_cols(meta) |>
-  #       tidyr::pivot_longer(all_of(risk_cols), names_to = "risk_category", values_to = "prop") |>
-  #       mutate(period = label)
-  #   }
-  #   
-  #   plot_d <- bind_rows(
-  #     to_long(cs$before, cs$meta[c("gender", "agecat")], "Before"),
-  #     to_long(cs$after,  cs$meta[c("gender", "agecat")], "After")
-  #   ) |>
-  #     mutate(period = factor(period, levels = c("Before", "After")),
-  #            risk_category = factor(risk_category, levels = risk_cols, labels = c("Low risk","Moderate risk","High risk","Very high risk")),
-  #            tooltip = sprintf("%s<br>%s: %s", period, risk_category, scales::percent(prop, accuracy = 0.1)))
-  #   p <- ggplot(plot_d, aes(period, prop, fill = risk_category, text = tooltip)) +
-  #     geom_col(position = "fill") +
-  #     facet_grid(agecat ~ gender) +
-  #     scale_y_continuous(labels = scales::percent) +
-  #     scale_fill_manual(values = c(
-  #       `Low risk`       = "#2E8B57",   # green
-  #       `Moderate risk`  = "#F4C430",   # amber
-  #       `High risk`      = "#E8732A",   # orange
-  #       `Very high risk` = "#C0392B"    # red
-  #     )) +
-  #     labs(x = NULL, y = "Proportion of drinkers", fill = "Risk category") +
-  #     theme_minimal(base_size = 11) +
-  #     theme(strip.text.y = element_text(angle = 0), legend.position = "top", legend.direction = "horizontal") +
-  #     scale_x_discrete(labels = c("Observed","Simulated"))
-  #   
-  #   ggplotly(p, height = 900, tooltip = "text") |> config(displaylogo = FALSE)
-  # })
-  
-  
   # ABOUT & HELP
   
   observeEvent(input$show_help, {
@@ -334,28 +309,42 @@ server <- function(input, output, session) {
       tagList(
         h4("About this app"),
         p("This app simulates the avoidable burden of disease (deaths, YLL, YLD and DALYs)",
-          "under hypothetical alcohol-policy scenarios, and lets you explore the results",
+          "under hypothetical changes in the alcohol exposure of the South African population, and lets you explore the results",
           "as a chart and table."),
         
         h4("1. Simulation settings"),
-        p("Open the ", strong("Simulation settings"), " panel in the sidebar to set overall",
-          "parameters for the run (e.g. year, number of simulations, random seed,",
-          "uncertainty interval). These apply to the whole simulation, not to any",
-          "single scenario row."),
+        p("Open the ", strong("Simulation settings"), " panel in the sidebar to set overall", "parameters for the simulation:"),
+        tags$ul(
+          tags$li(strong("Burden data"), " — Source of burden data: Third South Africian National Burden of Disease Study (NBD 3)",
+                  " or Global Burden of Disease Study 2023 (GBD 2023)."),
+          tags$li(strong("Recalibration"), " — Method for recalibrating the scenario multipliers so that the total alcohol consumption ",
+                  "across the whole population matches the value implied by the 'Recalibration proportion' setting: ",
+                  "No recalibration (None)), Change the proportion of drinkers (Proportion of drinkers), ",
+                  "Change the average consumption among drinkers (Average daily conusmption)."),
+          tags$li(strong("Recalibration proportion"), " — Total alcohol consumption in the population (as a proportion of the observed consumption).")
+        ),
+        p("These settings apply to the whole simulation."),
         
         h4("2. Scenario multipliers"),
         p("The ", strong("Scenario multipliers"), " table has one row per gender and age",
-          "group, with three columns:"),
+          "group, with six columns:"),
         tags$ul(
-          tags$li(strong("curr"), " — multiplier for the prevalence of drinkers"),
-          tags$li(strong("bing"), " — multiplier for the prevalence of binge drinking",
-                  "among drinkers"),
-          tags$li(strong("cons"), " — multiplier for average daily consumption")
+          tags$li(strong("PREV"), " — multiplier for the prevalence of drinkers."),
+          tags$li(strong("HED"), " — multiplier for the prevalence of heavy episodic drinkers among drinkers."),
+          tags$li(strong("LR"), " — multiplier average daily consumption among low risk individuals."),
+          tags$li(strong("MR"), " — multiplier average daily consumption among moderate risk individuals."),
+          tags$li(strong("HR"), " — multiplier average daily consumption among high risk individuals."),
+          tags$li(strong("VR"), " — multiplier average daily consumption among very high risk individuals.")
         ),
-        p("All values must be between 0 and 1. A value of 1 means no change from",
-          "baseline; for example, 0.8 means a 20% reduction."),
-        p("Double-click a cell to edit it directly, or use ", strong("Set column to value"),
-          "to apply the same number to an entire column at once."),
+        p("All values must be between 0 and 1. A value of 1 means no change from the observed distribution; for example, 0.8 means a 20% reduction."),
+        p("Risk categories are defined based on average daily alcohol consumption according to standard World Health Organization cutoffs: "),
+        tags$ul(
+          tags$li("Low risk:", " <20 g/day (females) and <40 g/day (males)"),
+          tags$li("Moderate risk:", " [20-40] g/day (females) and [40-60] g/day (males)"),
+          tags$li("High risk:", " [40-60] g/day (females) and [60-100] g/day (males)"),
+          tags$li("Very high risk:", " >60 g/day (females) and > 100 g/day (males)")
+        ),
+        p("Double-click a cell to edit it directly, or use ", strong("Set column to value"),"to apply the same number to an entire column at once."),
         p(strong("Reset to 1"), " restores all multipliers to baseline (no change).",
           strong("Save params"), " downloads the current table as a CSV, and",
           strong("Load params"), " lets you re-upload a previously saved CSV."),
@@ -377,14 +366,13 @@ server <- function(input, output, session) {
           "measure, break the chart down by gender or age group, or adjust how many",
           "diseases are shown. Hover over a bar for its exact value; click a legend",
           "entry to show or hide a group."),
-        p(strong("Table tab"), ": the full results as a searchable, sortable table, with",
-          "a button to download it as a CSV."),
+        p(strong("Table tab"), ": the full results as a searchable, sortable table, with"," a button to download it as a CSV."),
         
         h4("Tips"),
         tags$ul(
           tags$li("Use ", strong("Set column to value"), " to quickly test an across-the-board",
-                  "change, e.g. setting cons to 0.9 for a 10% reduction in consumption",
-                  "for every group."),
+                  "change, e.g. setting PREV to 0.9 for a 10% reduction in consumption",
+                  "for every demographic group."),
           tags$li("Save a scenario before making further changes, so you can reload it",
                   "later or share it with others."),
           tags$li("If the results look empty, check that ", strong("Run simulation"),
@@ -402,10 +390,14 @@ server <- function(input, output, session) {
       title = "About",
       tagList(
         h4("About"),
-        
-        p("This app was developed by [Name], [Affiliation],",
-          "as part of [Project name / study name]."),
-        
+        p("This app was developed by Annibale Cois & Magnolia Chikanya, School of Public Health, University of Cape Town, as part of the ",
+        tags$a(
+          "RESET Alcohol Initiative", 
+          href = "https://www.vitalstrategies.org/issues/alcohol-policy/reset-alcohol-initiative/", 
+          target = "_blank", # Opens in a new tab
+          style = "font-size: 0.85rem; text-decoration: underline;"
+        ),"."
+        ),
         h4("Methodology"),
         p("The underlying simulation model and avoidable burden estimates are based",
           "on [brief description of the model / data sources, e.g. Global Burden of",
@@ -413,7 +405,9 @@ server <- function(input, output, session) {
           "are available in [reference / link]."),
         
         h4("Acknowledgements"),
-        p("[Names / teams / funders to acknowledge, if any.]"),
+        p(strong("Dr Kevin D. Shield"), " Population & Global Health Institute (CAMH), for providing the updated R code to implement relative risk functions", 
+          "for alcohol attributable diseases."),
+        p(strong("Vital Strategies Inc."), " which funded the development of teh application and the underlying study (subgrant agreement VS00036959, 15/05/2026)"),
         
         h4("Contact"),
         p("For questions, feedback or bug reports, please contact",
@@ -425,7 +419,7 @@ server <- function(input, output, session) {
         h4("Citation"),
         p("If you use this app or its results, please cite:"),
         tags$blockquote(
-          "[Annibale Cois ([Year]). [App/Project title]. [Version/URL]."
+          "Annibale Cois, Magnolia Chikanya (2026). RESET-IMPACTSIM. [Version/URL]."
         ),
         
         h4("License"),
@@ -433,7 +427,7 @@ server <- function(input, output, session) {
         p(
           a(href="https://opensource.org/licenses/MIT", img(src="https://img.shields.io/badge/License-MIT-yellow.svg"), alt="License: MIT")
         ),
-        p("This app is released under the [license name] license. See the",
+        p("This app is released under the MIT license. See the",
           a(href = "https://github.com/AnnibaleCois/RESET-IMPACTSIM/LICENSE", "LICENSE file", target = "_blank"), "for details.")
       ),
       easyClose = TRUE,

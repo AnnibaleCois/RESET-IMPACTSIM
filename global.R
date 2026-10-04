@@ -41,7 +41,7 @@ names(mult_cols) <- c("PREV", "HED", "LR", "MR", "HR", "VR")
 template <- expand.grid(agecat = agecats, gender = genders, stringsAsFactors = FALSE)[, c("gender", "agecat")]
 template[c(mult_cols)] <- 1   # 1 = no change (baseline) for all seven columns
 
-footercontent <- "Footer dassd"
+footercontent <- ""
 
 # THEME 
 

@@ -100,12 +100,11 @@ ui <- page_sidebar(
       div(class = "tab-footer", footercontent)
     ),
     nav_panel(
-      "Exposure",
+      "Assumed exposure",
       icon = icon("wine-glass"),
-      h5("Simulated changes in drinking patterns"),
+      h5("Differences from observed exposure"),
       uiOutput("cons_summary_cards"),
-      # h5("Risk category distribution by age and gender: observed vs simulated"),
-      # plotlyOutput("risk_shift_by_group", height = "900px"),
+      uiOutput("chart_footer"),
       div(class = "tab-footer", footercontent)
     )
   )
