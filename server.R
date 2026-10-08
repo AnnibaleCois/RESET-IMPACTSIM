@@ -258,7 +258,20 @@ server <- function(input, output, session) {
   output$cons_summary_cards <- renderUI({
     p <- params()
     cols <- c(mult_cols)
-    avg_reduction <- sapply(p[cols], function(x) mean(x) - 1)
+    
+    # Recover recalibration factor
+    
+    if (input$RECALIBRATE == "no") {
+      r <- c(1,1,1,1,1,1)
+    } else if (input$RECALIBRATE == "curr") {
+      r <- c(input$R0,1,1,1,1,1)
+    } else {
+      r <- c(1,1,input$R0,input$R0,input$R0,input$R0)
+    }
+    
+    # Calculate effective reduction  
+    avg_reduction <- sapply(p[cols], function(x) mean(x))
+    avg_reduction <- avg_reduction*r - 1
     reduction <- rep("", length(avg_reduction))
     for (i in c(1:length(avg_reduction))) {
       if(avg_reduction[i]== 0) {
