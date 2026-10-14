@@ -291,14 +291,16 @@ server <- function(input, output, session) {
     )
     
     if (!is.null(res())) {
-      totred = round((res()$R-1)*100,1)
-    if (totred !=0) {
-      ltotred <- paste0(totred,"%")
+      totredp = round((res()$R-1)*100,1)
+      totredl = round((res()$R-1)*TOTAA,0)
+    if (totredp !=0) {
+      ltotred <- paste0(totredp,"% (",formatC(totredl, format = "f", big.mark = "\u2009", digits = 0)," litres)")
     } else {
       ltotred <- "unchanged"
     }
     } else {
       ltotred <- "unchanged"
+      
     }
     
     tags$div(
@@ -328,39 +330,38 @@ server <- function(input, output, session) {
         h4("1. Simulation settings"),
         p("Open the ", strong("Simulation settings"), " panel in the sidebar to set overall", "parameters for the simulation:"),
         tags$ul(
-          tags$li(strong("Burden data"), " — Source of burden data: Third South Africian National Burden of Disease Study (NBD 3)",
+          tags$li(strong("Burden data"), " — Source of burden data: Third South African National Burden of Disease Study (NBD 3)",
                   " or Global Burden of Disease Study 2023 (GBD 2023)."),
           tags$li(strong("Recalibration"), " — Method for recalibrating the scenario multipliers so that the total alcohol consumption ",
                   "across the whole population matches the value implied by the 'Recalibration proportion' setting: ",
-                  "No recalibration (None)), Change the proportion of drinkers (Proportion of drinkers), ",
+                  "No recalibration (None), Change the proportion of drinkers (Proportion of drinkers), ",
                   "Change the average consumption among drinkers (Average daily conusmption)."),
           tags$li(strong("Recalibration proportion"), " — Total alcohol consumption in the population (as a proportion of the observed consumption).")
         ),
         p("These settings apply to the whole simulation."),
         
         h4("2. Scenario multipliers"),
-        p("The ", strong("Scenario multipliers"), " table has one row per gender and age",
-          "group, with six columns:"),
+        p("The ", strong("Scenario multipliers"), " table has one row per gender and age", "group, with six columns:"),
         tags$ul(
           tags$li(strong("PREV"), " — multiplier for the prevalence of drinkers."),
           tags$li(strong("HED"), " — multiplier for the prevalence of heavy episodic drinkers among drinkers."),
-          tags$li(strong("LR"), " — multiplier average daily consumption among low risk individuals."),
-          tags$li(strong("MR"), " — multiplier average daily consumption among moderate risk individuals."),
-          tags$li(strong("HR"), " — multiplier average daily consumption among high risk individuals."),
-          tags$li(strong("VR"), " — multiplier average daily consumption among very high risk individuals.")
+          tags$li(strong("LR"), " — multiplier for average daily consumption among low risk individuals."),
+          tags$li(strong("MR"), " — multiplier for average daily consumption among moderate risk individuals."),
+          tags$li(strong("HR"), " — multiplier for average daily consumption among high risk individuals."),
+          tags$li(strong("VR"), " — multiplier for average daily consumption among very high risk individuals.")
         ),
-        p("All values must be between 0 and 1. A value of 1 means no change from the observed distribution; for example, 0.8 means a 20% reduction."),
+        p("All values must be between 0 and 1. A value of 1 means no change from the observed distribution: for example, 0.8 means a 20% reduction."),
         p("Risk categories are defined based on average daily alcohol consumption according to standard World Health Organization cutoffs: "),
         tags$ul(
-          tags$li("Low risk:", " <20 g/day (females) and <40 g/day (males)"),
-          tags$li("Moderate risk:", " [20-40] g/day (females) and [40-60] g/day (males)"),
-          tags$li("High risk:", " [40-60] g/day (females) and [60-100] g/day (males)"),
+          tags$li("Low risk:", " ≤20 g/day (females) and ≤40 g/day (males)"),
+          tags$li("Moderate risk:", " [20-40) g/day (females) and [40-60) g/day (males)"),
+          tags$li("High risk:", " (40-60] g/day (females) and (60-100] g/day (males)"),
           tags$li("Very high risk:", " >60 g/day (females) and > 100 g/day (males)")
         ),
         p("Double-click a cell to edit it directly, or use ", strong("Set column to value"),"to apply the same number to an entire column at once."),
-        p(strong("Reset to 1"), " restores all multipliers to baseline (no change).",
-          strong("Save params"), " downloads the current table as a CSV, and",
-          strong("Load params"), " lets you re-upload a previously saved CSV."),
+        p(strong("Reset to 1"), " restores all multipliers to baseline (1 = no change)",
+          strong("Save params"), " downloads the current table as a CSV",
+          strong("Load params"), " uploads a previously saved CSV"),
         
         h4("3. Running the simulation"),
         p("Once the scenario table is set up, click ", strong("Run simulation"), ".",
@@ -376,7 +377,7 @@ server <- function(input, output, session) {
           "diseases. They show a dash until the first simulation has run."),
         p(strong("Chart tab"), ": an interactive bar chart of the top diseases for a",
           "chosen measure (deaths, YLL, YLD or DALY). Use the dropdowns to change the",
-          "measure, break the chart down by gender or age group, or adjust how many",
+          "measure, break the chart down by gender, age group or disease, or adjust how many",
           "diseases are shown. Hover over a bar for its exact value; click a legend",
           "entry to show or hide a group."),
         p(strong("Table tab"), ": the full results as a searchable, sortable table, with"," a button to download it as a CSV."),
@@ -385,7 +386,7 @@ server <- function(input, output, session) {
         tags$ul(
           tags$li("Use ", strong("Set column to value"), " to quickly test an across-the-board",
                   "change, e.g. setting PREV to 0.9 for a 10% reduction in consumption",
-                  "for every demographic group."),
+                  "for every demographic and risk group."),
           tags$li("Save a scenario before making further changes, so you can reload it",
                   "later or share it with others."),
           tags$li("If the results look empty, check that ", strong("Run simulation"),
@@ -412,15 +413,19 @@ server <- function(input, output, session) {
         ),"."
         ),
         h4("Methodology"),
-        p("The underlying simulation model and avoidable burden estimates are based",
-          "on [brief description of the model / data sources, e.g. Global Burden of",
-          "Disease study, national survey data, etc.]. Full methodological details",
-          "are available in [reference / link]."),
-        
+        p("The avoidable burden estimates generated by this App are based on the comparative Risk Assessment (CRA) methodology,",
+          "as implemented in the Second South African Comparative Risk Assessment Study (SACRA2)."),
+        p("The CRA methodology estimates the contribution of individual risk factors to the burden of disease (quantified in terms of number of deaths,",
+          " YLLs, YLDs and DALYs) by comparing the burden due to the observed exposure with an hypothetical counterfactual scenario characterised by a different",
+          " exposure distribution."),
+        p("The baseline exposure and burden distributions used in the simulation refers to the year 2022."),
+        p("Full methodological details are available in", span(" Cois A, Vellios N, Chikanya M, Matzopoulos R. (2026)", style = "font-style: italic;"),
+          span(" Lives saved and disease burden avoidable through reduced alcohol consumption in South Africa.", style = "font-style: italic;"),
+          span("Cape Town: University of Cape Town.", style = "font-style: italic;")),
         h4("Acknowledgements"),
         p(strong("Dr Kevin D. Shield"), " Population & Global Health Institute (CAMH), for providing the updated R code to implement relative risk functions", 
           "for alcohol attributable diseases."),
-        p(strong("Vital Strategies Inc."), " which funded the development of teh application and the underlying study (subgrant agreement VS00036959, 15/05/2026)"),
+        p(strong("Vital Strategies Inc."), " which funded the development of the application and the underlying study (subgrant agreement VS00036959, 15/05/2026)"),
         
         h4("Contact"),
         p("For questions, feedback or bug reports, please contact",
@@ -432,7 +437,7 @@ server <- function(input, output, session) {
         h4("Citation"),
         p("If you use this app or its results, please cite:"),
         tags$blockquote(
-          "Annibale Cois, Magnolia Chikanya (2026). RESET-IMPACTSIM. [Version/URL]."
+          "Annibale Cois, Magnolia Chikanya (2026). RESET-IMPACTSIM. Version 1.0. [URL/DOI]."
         ),
         
         h4("License"),
