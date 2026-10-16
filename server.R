@@ -31,7 +31,15 @@ server <- function(input, output, session) {
     datatable(
       params(), rownames = FALSE, selection = "none", container = sketch,
       editable = list(target = "cell", disable = list(columns = c(0, 1))),
-      options = list(dom = "t", pageLength = 12, ordering = FALSE)
+      options = list(dom = "t", pageLength = 12, ordering = FALSE),
+      callback = JS(sprintf("
+        table.on('focusin', 'td input', function() {
+          this.type = 'number';
+          this.step = '0.05';
+          this.min = '0';
+          this.max = '%s';
+        });
+      ", MAXMULT))
     )
   })
   proxy <- dataTableProxy("param_tbl")
@@ -40,13 +48,18 @@ server <- function(input, output, session) {
     info <- input$param_tbl_cell_edit
     p <- params()
     val <- suppressWarnings(as.numeric(info$value))
+    
     if (is.na(val) || val < 0 || val > MAXMULT) {
-      showNotification(paste0("Multipliers must be numbers between 0 and ", MAXMULT), type = "warning")
+      showNotification(
+        paste0("Multipliers must be numbers between 0 and ", MAXMULT),
+        type = "warning"
+      )
     } else {
-      p[info$row, info$col + 1] <- val    
+      p[info$row, info$col + 1] <- round(val, 2)
+      params(p)
     }
-    params(p)
-    replaceData(proxy, p, resetPaging = FALSE, rownames = FALSE)
+    
+    replaceData(proxy, params(), resetPaging = FALSE, rownames = FALSE)
   })
   
   observeEvent(input$apply_all, {
@@ -117,7 +130,6 @@ server <- function(input, output, session) {
   
   output$totals <- renderUI({
     d <- res()$outd
-    #m <- paste0(input$variable, "_", measures)
     m <- paste0("vbod", "_", measures)
     m1 <- paste0("abod", "_", measures)
     m2 <- paste0("bod", "_", measures)
@@ -148,7 +160,6 @@ server <- function(input, output, session) {
         !!!lapply(names(tot), function(m) {
         title <- paste0("AVOIDABLE ",strsplit(m, "_")[[1]][2],"S")
         value_box(title = title,
-                  #value = format(round(tot[[m]]), big.mark = "\u2009"),
                   value = tagList(
                           span(format(round(tot[[m]]), big.mark = "\u2009")),
                           span(paste0("Total burden: ",tot2[[m]]), style = "font-size: 30%; opacity: 0.8; "),
@@ -216,7 +227,7 @@ server <- function(input, output, session) {
     
   })
   
-  # Note below the chart  
+  # NOTE BELOW THE CHART  
     output$chart_footer <- renderUI({
       lbl <- run_label()
       txt <- if (is.null(lbl)) "No simulation run yet" else paste("Burden source:", lbl)
@@ -259,7 +270,7 @@ server <- function(input, output, session) {
     p <- params()
     cols <- c(mult_cols)
     
-    # Recover recalibration factor
+    # RECOVER RECALIIBRATION FACTOR
     
     if (input$RECALIBRATE == "no") {
       r <- c(1,1,1,1,1,1)
@@ -269,7 +280,8 @@ server <- function(input, output, session) {
       r <- c(1,1,input$R0,input$R0,input$R0,input$R0)
     }
     
-    # Calculate effective reduction  
+    # CALCULATE EFFECTIVE REDUCTION 
+    
     avg_reduction <- sapply(p[cols], function(x) mean(x))
     avg_reduction <- avg_reduction*r - 1
     reduction <- rep("", length(avg_reduction))
@@ -316,6 +328,43 @@ server <- function(input, output, session) {
     )
   })
   
+  # PLOT DISTRIBUTION  
+  
+  output$dist <- renderPlotly({
+    d <- res()$shiftexp[,c("gender","agecat","alpha_cf","beta_cf","pdrink_cf","alpha","beta","pdrink","pop")]
+    req(d)
+    w <- d$pop*d$pdrink #/ sum(d$pop*d$pdrink)
+    w_cf <- d$pop*d$pdrink_cf #/ sum(d$pop*d$pdrink_cf)
+    d$pdrink <- NULL
+    d$pdrink_cf <- NULL
+    
+    # MIXTURE DENSITY (SUM OF GAMMA DENSITIES, WEIGHTED WITH THE NUMBER OF DRINKER IN EACH AGE*GENDER CATEGORY
+    mix_density <- function(x, alph, bet, w) {
+      sapply(x, function(xx) sum(w * dgamma(xx, shape = alph, rate = bet)))
+    }
+  
+   # COMMIN X GRID (COVERING BIOTH DISTRIBUTIONS)
+  x_max <- max(qgamma(0.999, d$alpha, d$beta), qgamma(0.999, d$alpha_cf, d$beta_cf))
+  x <- seq(0.03, x_max, length.out = 1000)
+  
+  d1 <- mix_density(x, d$alpha, d$beta, w)
+  d2 <- mix_density(x, d$alpha_cf, d$beta_cf, w_cf)
+  
+  plot_ly() %>%
+    add_trace(x = x, y = d1, type = "scatter", mode = "lines",
+              name = "Observed", line = list(color = "#1f77b4", width = 0),
+              fill = "tozeroy", fillcolor = "rgba(31,119,180,0.2)",
+              hovertemplate = "Consumption: %{x:.1f} g/day<br>Number: %{y:.0f}<extra>Observed</extra>") %>%
+    add_trace(x = x, y = d2, type = "scatter", mode = "lines",
+              name = "Scenario", line = list(color = "#ff7f0e", width = 0),
+              fill = "tozeroy", fillcolor = "rgba(255,127,14,0.2)",
+              hovertemplate = "Consumption: %{x:.1f} g/day<br>Number: %{y:.0f}<extra>Scenario</extra>") %>%
+    layout(xaxis = list(title = "Alcohol consumption [g/day]", range = c(1, 150), hoverformat = ".1f"),
+           yaxis = list(title = "Number per unit of consumption", range = c(0, 800000) ),
+           hovermode = "x unified") %>%
+           config(displaylogo = FALSE)          
+  })
+
   # ABOUT & HELP
   
   observeEvent(input$show_help, {
@@ -408,7 +457,7 @@ server <- function(input, output, session) {
         tags$a(
           "RESET Alcohol Initiative", 
           href = "https://www.vitalstrategies.org/issues/alcohol-policy/reset-alcohol-initiative/", 
-          target = "_blank", # Opens in a new tab
+          target = "_blank", 
           style = "font-size: 0.85rem; text-decoration: underline;"
         ),"."
         ),

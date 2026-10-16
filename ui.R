@@ -10,12 +10,24 @@ ui <- page_sidebar(
     class = "d-flex align-items-center justify-content-between w-100",
           span(toupper("Avoidable burden of disease: scenario simulator"), style = "font-size: 130%;"),
           tags$img(src = "logo_combined.png", height = "40px"),
-  
   span(
     style = "float: right;",
     actionButton("show_help",  label = NULL, icon = icon("circle-question"), class = "header-icon-btn"),
     actionButton("show_about", label = NULL, icon = icon("circle-info"), class = "header-icon-btn")
   )
+  ),
+  tags$head(tags$style(HTML("
+    .shiny-notification .progress-bar {
+      background-image: linear-gradient(45deg, rgba(255,255,255,.25) 25%, transparent 25%,
+        transparent 50%, rgba(255,255,255,.25) 50%, rgba(255,255,255,.25) 75%, transparent 75%);
+      background-size: 1rem 1rem;
+      animation: progress-stripes 1s linear infinite;
+    }
+    @keyframes progress-stripes {
+      from { background-position: 1rem 0; }
+      to   { background-position: 0 0; }
+    }
+  "))
   ),
   theme = theme_vs, 
   sidebar = sidebar(
@@ -100,11 +112,20 @@ ui <- page_sidebar(
       div(class = "tab-footer", footercontent)
     ),
     nav_panel(
-      "Assumed exposure",
+      "Assumed exposure", 
       icon = icon("wine-glass"),
-      h5("Differences from observed exposure"),
-      uiOutput("cons_summary_cards"),
-      uiOutput("chart_footer"),
+      layout_columns(
+        col_widths = c(6, 6),
+        card(
+          card_header("Differences from observed exposure"),
+          uiOutput("cons_summary_cards")#,
+          #uiOutput("chart_footer")
+        ),
+        card(
+          card_header("Distribution of alcohol consumption among drinkers"),
+          plotlyOutput("dist", height = "550px")
+        )
+      ),
       div(class = "tab-footer", footercontent)
     )
   )

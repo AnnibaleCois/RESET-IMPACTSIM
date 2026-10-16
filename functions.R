@@ -12,14 +12,34 @@
 ################################################################################################################################################################################
 
 # LOAD AN RData FILE 
-
 loadRData <- function(fileName){     
   load(fileName)
   get(ls()[ls() != "fileName"])
 }
 
+# REFIT A GAMMA DISTRIBUTION TO MATCH APPROXIMATELY A SET OF PROPORTIONAL REDUCTIONS
+refit_gamma <- function(alpha, beta, breaks, mult) {
+  stopifnot(length(mult) == length(breaks) - 1, !is.unsorted(breaks))
+  lo <- breaks[-length(breaks)]
+  hi <- breaks[-1]
+  
+  # Share of the population in each range (useful sanity check)
+  prop <- pgamma(hi, alpha, beta) - pgamma(lo, alpha, beta)
+  
+  # Partial first and second moments within each range
+  m1 <- (alpha / beta) * (pgamma(hi, alpha + 1, beta) - pgamma(lo, alpha + 1, beta))
+  m2 <- (alpha * (alpha + 1) / beta^2) * (pgamma(hi, alpha + 2, beta) - pgamma(lo, alpha + 2, beta))
+  
+  k <- mult
+  new_mean <- sum(k   * m1)
+  new_var  <- sum(k^2 * m2) - new_mean^2
+  
+  out <- c(alpha = new_mean^2/new_var, beta = new_mean/new_var, mean = new_mean)
+  return(out)
+}
+
 ################################################################################################################################################################################
-# RR                                                                                                                                                                           #
+# RELATIVE RISKS                                                                                                                                                               #
 ################################################################################################################################################################################
 
 # EXCESS RR FOR FORMER DRINKERS: RRfd
@@ -82,16 +102,17 @@ safe_integrate <- function(f, lower, upper, cause, outcome, gender, agecat, shap
 }
 
 ################################################################################################################################################################################
-# IMPACT FRACTIONS                                                                                                                                                             #
+# ATTRIBUTABLE & IMPACT FRACTIONS                                                                                                                                              #
 ################################################################################################################################################################################
 
+# CALCULATE PBAT
 pbat <- function(index, draw, nc, pcd, bd, ub, alpha, beta)  {                                                      
   bat <- pgamma(ub, shape = alpha[index, draw], rate = beta[index, draw]) - 
     pgamma(bd, shape = alpha[index, draw], rate = beta[index, draw])
   return(bat*pcd/nc)
 }
 
-# build once, at top level (Golub-Welsch)
+# GENERATE FIXED NODES FOR INTEGRATION (Golub-Welsch)
 gl_nodes <- function(n) {
   i <- seq_len(n - 1)
   b <- i / sqrt(4 * i^2 - 1)
@@ -103,6 +124,7 @@ gl_nodes <- function(n) {
   list(x = e$values[o], w = 2 * e$vectors[1, o]^2)
 }
 
+# FAST INTEGRATION ALGORITHM (DEFAULTS TO THE SLOW ONE IN CASE OF NO CONVERGENCE)
 fast_integrate <- function(f, lower, upper, gl, ...) {
   if (upper <= lower) return(list(value = 0))
   h <- (upper - lower) / 2
@@ -114,12 +136,14 @@ fast_integrate <- function(f, lower, upper, gl, ...) {
   list(value = h * sum(gl$w * v))
 }
 
+# CALCULATE PAFS (SAME RR FOR BINGE DRINKERS)
 paf1 <- function(cause, outcome, gender, agecat, pfd, pcd, pbd, shape, rate, nc, lb, ub, rrfd, rrnb, vint1, par1, par2, dat, gl) {
   I1  <- fast_integrate(vint1, lb, ub, gl, cause, outcome, gender, agecat, shape, rate, rrnb, dat, par2)$value
   NUM <- pfd * rrfd(0, cause, gender, agecat, outcome, dat, par1) + pcd / nc * I1
   NUM / (1 + NUM)
 }
 
+# CALCULATE PAFS (DIFFERENT RR FOR BINGE DRINKERS)
 paf2 <- function(cause, outcome, gender, agecat, pfd, pcd, pbd, pbat, bd, shape, rate, nc, lb, ub, rrfd, rrnb, rrbd, vint1, vint2, par1, par2, par3, dat, gl) {
   NUM1 <- pfd * rrfd(0, cause, gender, agecat, outcome, dat, par1)
   I_nb_low  <- fast_integrate(vint1, lb, bd, gl, cause, outcome, gender, agecat, shape, rate, rrnb, dat, par2)$value
@@ -135,7 +159,7 @@ paf2 <- function(cause, outcome, gender, agecat, pfd, pcd, pbd, pbat, bd, shape,
   (NUM1 + NUM2) / (1 + NUM1 + NUM2)
 }
 
-
+# CALCULATE PIFS 
 pif <- function(pifdata, bdm, bdf, lb, ub, gl, radjust) {
   n <- nrow(pifdata)
   out <- numeric(n)
@@ -216,26 +240,7 @@ pif <- function(pifdata, bdm, bdf, lb, ub, gl, radjust) {
 # WRAPPERS                                                                                                                                                                     #
 ################################################################################################################################################################################
 
-refit_gamma <- function(alpha, beta, breaks, mult) {
-  stopifnot(length(mult) == length(breaks) - 1, !is.unsorted(breaks))
-  lo <- breaks[-length(breaks)]
-  hi <- breaks[-1]
-  
-  # Share of the population in each range (useful sanity check)
-  prop <- pgamma(hi, alpha, beta) - pgamma(lo, alpha, beta)
-  
-  # Partial first and second moments within each range
-  m1 <- (alpha / beta) * (pgamma(hi, alpha + 1, beta) - pgamma(lo, alpha + 1, beta))
-  m2 <- (alpha * (alpha + 1) / beta^2) * (pgamma(hi, alpha + 2, beta) - pgamma(lo, alpha + 2, beta))
-  
-  k <- mult
-  new_mean <- sum(k   * m1)
-  new_var  <- sum(k^2 * m2) - new_mean^2
-  
-  out <- c(alpha = new_mean^2/new_var, beta = new_mean/new_var, mean = new_mean)
-  return(out)
-}
-
+# GENERATE ALTERNATIVE EXPOSURES AND CONSOLIDATE ANALYSIS DATASET
 edata <- function(scenario, r0, recalibrate, data1, data2, rbreaks) {
   data <- rbind(data1, data2)
   cf <- left_join(data, scenario)
@@ -274,19 +279,17 @@ edata <- function(scenario, r0, recalibrate, data1, data2, rbreaks) {
   out = list(expdata = left_join(data, cf  %>% rename(alpha_cf = alpha, beta_cf = beta, pdrink_cf = pdrink, pform_cf = pform, pbing_cf = pbing, mu_cf = mu )), r = R, ra = ra)
   return(out)
   
-}  # GENERATE ALTERNATIVE EXPOSURES AND CONSOLIDATE ANALYSIS DATASET
+}  
 
-
+# CALCULATE PIFS, VBOD
 odata <- function(scenario, r0, recalibrate, bdm, bdf, lb, ub, data1, data2, data3, gl, burden, rbreaks) {
   edat <- edata(scenario = scenario, r0 = r0, recalibrate = recalibrate, data1 = data1, data2 = data2, rbreaks = rbreaks)
   pifout <- pif(pifdata = edat$expdata, bdm = bdm, bdf = bdf, lb = lb, ub = ub, gl = gl, radjust = edat$r*edat$ra)
-  X <- edat$expdata[, c("gender","agecat","alpha_cf","beta_cf","pdrink_cf","pbing_cf")]
+  X <- edat$expdata[, c("gender","agecat","alpha_cf","beta_cf","pdrink_cf","pbing_cf","alpha","beta","pdrink","pbing","pop")]
   X <- X[!duplicated(X),]
   outdata <- cbind(edat$expdata, pif = pifout) 
-  eyll <- cbind(data3, outdata %>% arrange(metric, gender, agecat) %>% dplyr::slice(1:nrow(data3)) %>% dplyr::select(alpha_cf,beta_cf,pdrink_cf,pform_cf,pbing_cf,mu_cf,
-                                                                                                                     curr,bing,
-                                                                                                                     Low_risk,Moderate_risk,High_risk,Very_high_risk,
-                                                                                                                     pif))  
+  eyll <- cbind(data3, outdata %>% arrange(metric, gender, agecat) %>% dplyr::slice(1:nrow(data3)) %>% 
+                  dplyr::select(alpha_cf,beta_cf,pdrink_cf,pform_cf,pbing_cf,mu_cf, curr,bing,Low_risk,Moderate_risk,High_risk,Very_high_risk,pif))  
   outdata <- rbind(outdata, eyll) %>% arrange(metric, gender, agecat) 
   if (burden == "gbd") {
     outdata$bod <- outdata$bod2
@@ -296,13 +299,13 @@ odata <- function(scenario, r0, recalibrate, bdm, bdf, lb, ub, data1, data2, dat
   outdata <- outdata[, c("gender","agecat","cat1","cat2","cause","metric","bod","abod","vbod")] 
   outdata[,c("bod","abod","vbod")] <- round(outdata[,c("bod","abod","vbod")],0)
   loutdata <- list(
-    outd = outdata %>% pivot_wider(names_from = metric, values_from = c(bod, abod, vbod)) %>% mutate(bod_DALY =  bod_YLD + bod_YLL, abod_DALY = abod_YLD + abod_YLL, vbod_DALY = vbod_YLD + vbod_YLL),
+    outd = outdata %>% pivot_wider(names_from = metric, values_from = c(bod, abod, vbod)) %>% 
+      mutate(bod_DALY =  bod_YLD + bod_YLL, abod_DALY = abod_YLD + abod_YLL, vbod_DALY = vbod_YLD + vbod_YLL),
     shiftexp = X,
     R = edat$r*edat$ra
   ) 
   return(loutdata)
-  
-}  # CALCULATE PIFS, VBOD
+}  
 
 
 
