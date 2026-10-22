@@ -360,7 +360,7 @@ server <- function(input, output, session) {
               fill = "tozeroy", fillcolor = "rgba(255,127,14,0.2)",
               hovertemplate = "Consumption: %{x:.1f} g/day<br>Number: %{y:.0f}<extra>Scenario</extra>") %>%
     layout(xaxis = list(title = "Alcohol consumption [g/day]", range = c(1, 150), hoverformat = ".1f"),
-           yaxis = list(title = "Number per unit of consumption", range = c(0, 40000000) ),
+           yaxis = list(title = "Number per unit of consumption", range = c(0, 800000) ),
            hovermode = "x unified") %>%
            config(displaylogo = FALSE)          
   })
