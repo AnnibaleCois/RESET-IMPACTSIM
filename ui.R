@@ -27,6 +27,21 @@ ui <- page_sidebar(
       from { background-position: 1rem 0; }
       to   { background-position: 0 0; }
     }
+    
+    body::before {
+        content: 'EVALUATION';
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-30deg);
+        font-size: 8rem;
+        font-weight: bold;
+        color: rgba(0, 0, 0, 0.06);
+        pointer-events: none;
+        z-index: 9999;
+        white-space: nowrap;
+      }
+    
   "))
   ),
   theme = theme_vs, 

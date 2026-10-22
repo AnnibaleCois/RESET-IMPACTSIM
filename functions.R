@@ -163,6 +163,9 @@ paf2 <- function(cause, outcome, gender, agecat, pfd, pcd, pbd, pbat, bd, shape,
 pif <- function(pifdata, bdm, bdf, lb, ub, gl, radjust) {
   n <- nrow(pifdata)
   out <- numeric(n)
+  
+  #pa <- numeric(n)
+  #pa_cf <- numeric(n)
 
   gender        <- pifdata$gender
   cause         <- pifdata$cause  
@@ -192,6 +195,8 @@ pif <- function(pifdata, bdm, bdf, lb, ub, gl, radjust) {
   eps <- 1e-4
   equaldist <- (abs((pdrink_o - pdrink_cf)/pdrink_o) < eps) & (abs((pbing_o - pbing_cf)/pbing_o) < eps) & (abs((alpha_o - alpha_cf)/alpha_o) < eps) & (abs((beta_o - beta_cf)/beta_o) < eps) 
   
+  #equaldist <- rep(FALSE, length(equaldist))
+  
   # vectorised pre-computation (one pgamma call per quantity, not per row)
   ebd <- ifelse(gender == "Male", bdm, bdf)
   pUB_cf <- pgamma(ub, alpha_cf, beta_cf)
@@ -220,8 +225,8 @@ pif <- function(pifdata, bdm, bdf, lb, ub, gl, radjust) {
   
   for (i in todo3) {
     d <- pifdata[i, ]
-    PAR1 <- r_pfd[[i]]()
-    PAR2 <- prisk[[i]]()
+    #PAR1 <- r_pfd[[i]]()
+    #PAR2 <- prisk[[i]]()
     if (bingea[i] == 1) {
       paf_cf <- paf2(cause[i], outcome[i], gender[i], agecat[i], pform_cf[i], pdrink_cf[i], pdb_cf[i],
                      epbat_cf[i], ebd[i], alpha_cf[i], beta_cf[i], ncc_cf[i], lb, ub,
@@ -232,7 +237,10 @@ pif <- function(pifdata, bdm, bdf, lb, ub, gl, radjust) {
                      par1 = r_pfd[[i]](), par2 = prisk[[i]](), dat = d, gl = gl)
     }
     out[i] <- 1 - (1 - paf[i]) / (1 - paf_cf)
+    #pa[i] <- paf[i]
+    #pa_cf[i] <- paf_cf
   }
+  #save(pa, pa_cf, file = "PAF64.RData")
   out
 }
 
@@ -288,9 +296,11 @@ odata <- function(scenario, r0, recalibrate, bdm, bdf, lb, ub, data1, data2, dat
   X <- edat$expdata[, c("gender","agecat","alpha_cf","beta_cf","pdrink_cf","pbing_cf","alpha","beta","pdrink","pbing","pop")]
   X <- X[!duplicated(X),]
   outdata <- cbind(edat$expdata, pif = pifout) 
-  eyll <- cbind(data3, outdata %>% arrange(metric, gender, agecat) %>% dplyr::slice(1:nrow(data3)) %>% 
-                  dplyr::select(alpha_cf,beta_cf,pdrink_cf,pform_cf,pbing_cf,mu_cf, curr,bing,Low_risk,Moderate_risk,High_risk,Very_high_risk,pif))  
-  outdata <- rbind(outdata, eyll) %>% arrange(metric, gender, agecat) 
+  eyll <- cbind(data3 %>% arrange(metric, gender, agecat, cause), 
+                outdata %>% arrange(metric, gender, agecat, cause) %>%
+                  dplyr::slice(1:nrow(data3)) %>% 
+                  dplyr::select(alpha_cf,beta_cf,pdrink_cf,pform_cf,pbing_cf,mu_cf, curr,bing,Low_risk,Moderate_risk,High_risk,Very_high_risk,pif)) 
+  outdata <- rbind(outdata, eyll) %>% arrange(metric, gender, agecat, cause) 
   if (burden == "gbd") {
     outdata$bod <- outdata$bod2
     outdata$abod <- outdata$abod2

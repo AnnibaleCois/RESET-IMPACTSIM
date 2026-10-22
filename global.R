@@ -17,12 +17,12 @@ library(tidyr)
 # SETTINGS                                                                                                                                                                     # 
 ################################################################################################################################################################################
 
-IDIR <- "./data/"          # DATA FOLDER  
+IDIR <- "./data/CRA2/"     # DATA FOLDER (CRA2 = USES CRA2 RR FUNCTIONS; UPDATED = USES UPDATED RR FUNCTIONS)
 LB <- 0.03 ; UB <- 150     # INTEGRATION LIMITS [g/day]
 RRCAP <- 150               # CAP FOR RR FUNCTIONS
 BDM <- 60; BDF <- 48       # BINGE DRINKING CUTOFF [g/day] (MALES/FEMALES)
 MAXMULT <- 1               # ALLOWED MAXIMUM MULTIPLIER 
-INTNODES <- 64             # NUMBER OF INTEGRATION NODES FOR THE GAUSS-LEGENDRE INTEGRATOR 
+INTNODES <- 32             # NUMBER OF INTEGRATION NODES FOR THE GAUSS-LEGENDRE INTEGRATOR 
 TOTAA <- 8.4*43590000      # TOTAL CONSUMPTION OF ABSOLUTE ALCOHOL IN POPULATION 15+ (WHO ALCOHOL PER CAPITA ESTIMATE 2022 * STATSSA MID-YEAR POPULATION 15+ ESTIAMATE)
 
 # LIST AND VARIABLES FOR INTERFACE 
