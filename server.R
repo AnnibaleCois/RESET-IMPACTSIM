@@ -365,6 +365,49 @@ server <- function(input, output, session) {
            config(displaylogo = FALSE)          
   })
 
+  
+  output$hist <- renderPlotly({
+  
+    d <- res()$shiftexp[,c("gender","agecat","alpha_cf","beta_cf","pdrink_cf","alpha","beta","pdrink","pop")]
+    req(d)
+    w <- d$pop*d$pdrink #/ sum(d$pop*d$pdrink)
+    w_cf <- d$pop*d$pdrink_cf #/ sum(d$pop*d$pdrink_cf)
+    d$pdrink <- NULL
+    d$pdrink_cf <- NULL
+    
+    binwidth <- 12
+    breaks <- seq(0, 156, by = binwidth)   # 156 = first multiple of 12 above 150
+    lo <- head(breaks, -1)
+    hi <- tail(breaks, -1)
+    mid <- (lo + hi) / 2
+  
+    # Proportion of the population falling in each bin
+    mix_bin_prob <- function(lo, hi, alpha, beta, w) {
+      sapply(seq_along(lo), function(j)
+        sum(w * (pgamma(hi[j], shape = alpha, rate = beta) -
+                   pgamma(lo[j], shape = alpha, rate = beta))))
+    }
+  
+    p1 <- mix_bin_prob(lo, hi, d$alpha, d$beta, w)
+    p2 <- mix_bin_prob(lo, hi, d$alpha_cf, d$beta_cf, w_cf)
+    #bin_label <- paste0(lo, "–", hi)
+    bin_label <- ""
+    plot_ly() %>%
+      add_bars(x = mid, y = p1, name = "Observed",
+               marker = list(color = "rgba(31,119,180,0.75)"), text = bin_label,
+               hovertemplate = "Bin: %{text}<br>Proportion: %{y:.3f}<extra>Set 1</extra>") %>%
+      add_bars(x = mid, y = p2, name = "Scenario",
+               marker = list(color = "rgba(255,127,14,0.75)"), text = bin_label,
+               hovertemplate = "Bin: %{text}<br>Proportion: %{y:.3f}<extra>Set 2</extra>") %>%
+      layout(#title = "Population distribution of alcohol consumption",
+             barmode = "group",
+             bargap = 0.1,
+             xaxis = list(title = "Alcohol consumption [drinks/day]", range = c(0, 156), 
+                          tickmode = "array", tickvals = mid, ticktext = seq_along(mid)),
+             yaxis = list(title = "Number of drinkers"),
+             hovermode = "closest")
+  })
+
   # ABOUT & HELP
   
   observeEvent(input$show_help, {
