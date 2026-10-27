@@ -32,7 +32,9 @@ agecats  <- c("15-24", "25-34", "35-44", "45-54", "55-64", "65+")
 measures <- c(Deaths = "DEATH", YLL = "YLL", YLD = "YLD", DALY = "DALY")
 plot_cat <- c("Individual causes" = "cause", "Level 1 groups" = "cat1", "Level 2 groups" = "cat2", "Gender" = "gender", "Age" = "agecat")
 plot_group <- c("None" = "none", "Gender" = "gender", "Age" = "agecat", "Individual causes" = "cause", "Level 1 groups" = "cat1", "Level 2 groups" = "cat2")
-plot_var <- c("Total burden" = "bod", "Attributable burden" = "abod", "Avoidable burden" = "vbod")
+#plot_var <- c("Total burden" = "bod", "Attributable burden" = "abod", "Avoidable burden" = "vbod")
+plot_var <- c("Attributable burden" = "abod", "Avoidable burden" = "vbod")
+
 
 RBREAKS <- data.frame(Female = c(0,20,40,60,Inf), Male = c(0,40,60,100,Inf))
 

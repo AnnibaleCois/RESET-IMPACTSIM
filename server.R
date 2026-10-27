@@ -162,7 +162,7 @@ server <- function(input, output, session) {
         value_box(title = title,
                   value = tagList(
                           span(format(round(tot[[m]]), big.mark = "\u2009")),
-                          span(paste0("Total burden: ",tot2[[m]]), style = "font-size: 30%; opacity: 0.8; "),
+                          #span(paste0("Total burden: ",tot2[[m]]), style = "font-size: 30%; opacity: 0.8; "),
                           span(paste0("Attributable burden: ",tot1[[m]]), style = "font-size: 30%; opacity: 0.8; "),
                           span(paste0("Avoidable burden [%]: ", sprintf("%.1f",round(tot[[m]]/tot1[[m]]*100,1))), style = "font-size: 30%; opacity: 0.8; ")
                   ),
@@ -239,6 +239,9 @@ server <- function(input, output, session) {
   output$res_tbl <- renderDT({
     d <- res()$outd
     req(d)
+    d <- d %>% select(-c(bod_DEATH, bod_YLD, bod_YLL, bod_DALY))
+    colnames(d) <- c("Gender","Age","Group 1","Group 2", "Cause","Attributable\nDeaths","Attributable\nYLD","Attributable\nYLL","Avoidable\nDeaths","Avoidable\nYLL","Avoidable\nYLD","Attributable\nDALY","Avoidable\nDALY")
+    d <- d[,c(1:8,12,9:11,13)]
     datatable(d, rownames = FALSE, filter = "top") |>
       formatRound(intersect(measures, names(d)), 0)
   })
