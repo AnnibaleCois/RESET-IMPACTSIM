@@ -270,41 +270,38 @@ server <- function(input, output, session) {
   })
   
   output$cons_summary_cards <- renderUI({
-    p <- params()
-    cols <- c(mult_cols)
-    
-    # RECOVER RECALIIBRATION FACTOR
-    
-    if (input$RECALIBRATE == "no") {
-      r <- c(1,1,1,1,1,1)
-    } else if (input$RECALIBRATE == "curr") {
-      r <- c(input$R0,1,1,1,1,1)
-    } else {
-      r <- c(1,1,input$R0,input$R0,input$R0,input$R0)
-    }
-    
-    # CALCULATE EFFECTIVE REDUCTION 
-    
-    avg_reduction <- sapply(p[cols], function(x) mean(x))
-    avg_reduction <- avg_reduction*r - 1
-    reduction <- rep("", length(avg_reduction))
-    for (i in c(1:length(avg_reduction))) {
-      if(avg_reduction[i]== 0) {
-        reduction[i] <- "unchanged"
-      } else {
-        reduction[i] <- paste0(round(avg_reduction[i]*100,1),"%")
+    if (!is.null(res())) {
+      rdrink <- res()$rdrink
+      rbing <- res()$rbing
+      rcons <- res()$rcons
+
+      print(c(rdrink,rbing,rcons))
+      
+      avg_reduction <- c(rdrink,rbing,rcons)
+      reduction <- rep("", length(avg_reduction))
+      for (i in c(1:length(avg_reduction))) {
+        if(abs(avg_reduction[i])< 1e-4) {
+          reduction[i] <- "unchanged"
+        } else {
+          reduction[i] <- sprintf("%+.1f%%", avg_reduction[i]*100)   
+        }
       }
+      names(reduction) <- c("curr","bing","cons")
+      card_titles <- c(
+        curr           = "Prevalence of drinkers",
+        bing           = "Proportion of binge drinkers among drinkers",
+        cons           = "Average consumption among drinkers"
+      )
+    } else {
+      reduction <- rep("-", 3)
+      names(reduction) <- c("curr","bing","cons")
+      card_titles <- c(
+        curr           = "Prevalence of drinkers",
+        bing           = "Proportion of binge drinkers among drinkers",
+        cons           = "Average consumption among drinkers"
+      )
     }
-    names(reduction) <- cols
-    card_titles <- c(
-      curr           = "Prevalence of drinkers",
-      bing           = "Proportion of binge drinkers among drinkers",
-      Low_risk       = "Average consumption among low risk drinkers",
-      Moderate_risk  = "Average consumption among moderate risk drinkers",
-      High_risk      = "Average consumption among high risk drinkers",
-      Very_high_risk = "Average consumption among very high risk drinkers"
-    )
-    
+      
     if (!is.null(res())) {
       totredp = round((res()$R-1)*100,1)
       totredl = round((res()$R-1)*TOTAA,0)
@@ -314,13 +311,13 @@ server <- function(input, output, session) {
       ltotred <- "unchanged"
     }
     } else {
-      ltotred <- "unchanged"
-      
+      ltotred <- "-"
     }
+    
     
     tags$div(
     tags$ul(
-      lapply(names(avg_reduction), function(cn) {
+      lapply(names(reduction), function(cn) {
         tags$li(sprintf("%s: %s", card_titles[[cn]], reduction[[cn]]))
       })
     ),
@@ -333,48 +330,11 @@ server <- function(input, output, session) {
   
   # PLOT DISTRIBUTION  
   
-  output$dist <- renderPlotly({
-    d <- res()$shiftexp[,c("gender","agecat","alpha_cf","beta_cf","pdrink_cf","alpha","beta","pdrink","pop")]
-    req(d)
-    w <- d$pop*d$pdrink #/ sum(d$pop*d$pdrink)
-    w_cf <- d$pop*d$pdrink_cf #/ sum(d$pop*d$pdrink_cf)
-    d$pdrink <- NULL
-    d$pdrink_cf <- NULL
-    
-    # MIXTURE DENSITY (SUM OF GAMMA DENSITIES, WEIGHTED WITH THE NUMBER OF DRINKER IN EACH AGE*GENDER CATEGORY
-    mix_density <- function(x, alph, bet, w) {
-      sapply(x, function(xx) sum(w * dgamma(xx, shape = alph, rate = bet)))
-    }
-  
-   # COMMIN X GRID (COVERING BIOTH DISTRIBUTIONS)
-  x_max <- max(qgamma(0.999, d$alpha, d$beta), qgamma(0.999, d$alpha_cf, d$beta_cf))
-  x <- seq(0.03, x_max, length.out = 1000)
-  
-  d1 <- mix_density(x, d$alpha, d$beta, w)
-  d2 <- mix_density(x, d$alpha_cf, d$beta_cf, w_cf)
-  
-  plot_ly() %>%
-    add_trace(x = x, y = d1, type = "scatter", mode = "lines",
-              name = "Observed", line = list(color = "#1f77b4", width = 0),
-              fill = "tozeroy", fillcolor = "rgba(31,119,180,0.2)",
-              hovertemplate = "Consumption: %{x:.1f} g/day<br>Number: %{y:.0f}<extra>Observed</extra>") %>%
-    add_trace(x = x, y = d2, type = "scatter", mode = "lines",
-              name = "Scenario", line = list(color = "#ff7f0e", width = 0),
-              fill = "tozeroy", fillcolor = "rgba(255,127,14,0.2)",
-              hovertemplate = "Consumption: %{x:.1f} g/day<br>Number: %{y:.0f}<extra>Scenario</extra>") %>%
-    layout(xaxis = list(title = "Alcohol consumption [g/day]", range = c(1, 150), hoverformat = ".1f"),
-           yaxis = list(title = "Number per unit of consumption", range = c(0, 800000) ),
-           hovermode = "x unified") %>%
-           config(displaylogo = FALSE)          
-  })
-
-  
   output$hist <- renderPlotly({
-  
     d <- res()$shiftexp[,c("gender","agecat","alpha_cf","beta_cf","pdrink_cf","alpha","beta","pdrink","pop")]
     req(d)
-    w <- d$pop*d$pdrink #/ sum(d$pop*d$pdrink)
-    w_cf <- d$pop*d$pdrink_cf #/ sum(d$pop*d$pdrink_cf)
+    w <- d$pop*d$pdrink 
+    w_cf <- d$pop*d$pdrink_cf
     d$pdrink <- NULL
     d$pdrink_cf <- NULL
     
@@ -393,17 +353,15 @@ server <- function(input, output, session) {
   
     p1 <- mix_bin_prob(lo, hi, d$alpha, d$beta, w)
     p2 <- mix_bin_prob(lo, hi, d$alpha_cf, d$beta_cf, w_cf)
-    #bin_label <- paste0(lo, "–", hi)
     bin_label <- ""
     plot_ly() %>%
       add_bars(x = mid, y = p1, name = "Observed",
                marker = list(color = "rgba(31,119,180,0.75)"), text = bin_label,
-               hovertemplate = "Bin: %{text}<br>Proportion: %{y:.3f}<extra>Set 1</extra>") %>%
+               hovertemplate = "Drinks/day: %{x}<br>Number of drinkers: %{y:.0f}<extra>Set 1</extra>") %>%
       add_bars(x = mid, y = p2, name = "Scenario",
                marker = list(color = "rgba(255,127,14,0.75)"), text = bin_label,
-               hovertemplate = "Bin: %{text}<br>Proportion: %{y:.3f}<extra>Set 2</extra>") %>%
-      layout(#title = "Population distribution of alcohol consumption",
-             barmode = "group",
+               hovertemplate = "Drinks/day: %{x}<br>Number of drinkers: %{y:.0f}<extra>Set 2</extra>") %>%
+      layout(barmode = "group",
              bargap = 0.1,
              xaxis = list(title = "Alcohol consumption [drinks/day]", range = c(0, 156), 
                           tickmode = "array", tickvals = mid, ticktext = seq_along(mid)),
@@ -455,8 +413,8 @@ server <- function(input, output, session) {
         ),
         p("Double-click a cell to edit it directly, or use ", strong("Set column to value"),"to apply the same number to an entire column at once."),
         p(strong("Reset to 1"), " restores all multipliers to baseline (1 = no change)",
-          strong("Save params"), " downloads the current table as a CSV",
-          strong("Load params"), " uploads a previously saved CSV"),
+          strong("Save scenario"), " downloads the current table as a CSV",
+          strong("Load scenario"), " uploads a previously saved CSV"),
         
         h4("3. Running the simulation"),
         p("Once the scenario table is set up, click ", strong("Run simulation"), ".",

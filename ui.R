@@ -65,7 +65,7 @@ ui <- page_sidebar(
                       ),
           selected = "no" 
         ),
-        numericInput("R0",  "Recalibration proportion", min = 0.1, max = 1, step = 0.05, value = 0.80)
+        numericInput("R0",  "Recalibration proportion", min = 0.1, max = 1, step = 0.05, value = 1)
       ),
       accordion_panel(
         "Scenario", value = "scenario", icon = icon("sliders"),
@@ -91,10 +91,10 @@ ui <- page_sidebar(
         div(
           actionButton("apply_all", "Apply", class = "btn-secondary btn-sm"),
           actionButton("reset", "Reset to 1", class = "btn-outline-secondary btn-sm"),
-          downloadButton("dl_params", "Save params", class = "btn-outline-secondary btn-sm")
+          downloadButton("dl_params", "Save scenario", class = "btn-outline-secondary btn-sm")
         ),
         br(),
-    fileInput("upload", "Load params (CSV)", accept = ".csv")
+    fileInput("upload", "Load scenario (CSV)", accept = ".csv")
       )
     ),
     actionButton("run", "Run simulation", class = "btn-primary btn-lg w-100",icon = icon("play"))
@@ -130,12 +130,12 @@ ui <- page_sidebar(
       layout_columns(
         col_widths = c(6, 6),
         card(
-          card_header("Differences from observed exposure"),
+          card_header("Differences from observed exposure (including recalibration)"),
           uiOutput("cons_summary_cards")#,
           #uiOutput("chart_footer")
         ),
         card(
-          card_header("Distribution of alcohol consumption among drinkers"),
+          card_header("Number of drinkers per level of consumption"),
           plotlyOutput("hist", height = "550px")
         )
       ),

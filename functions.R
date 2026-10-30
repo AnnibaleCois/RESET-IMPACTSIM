@@ -262,6 +262,9 @@ edata <- function(scenario, r0, recalibrate, data1, data2, rbreaks) {
   cf[,c("pbing")] <- cf[,c("pbing")] * cf$bing
   
   R <- sum(cf$pdrink*cf$mu*cf$pop)/sum(data$pdrink*data$mu*data$pop)
+  RP <- (sum(cf$pdrink*cf$pop)/sum(cf$pop))/(sum(data$pdrink*data$pop)/sum(data$pop))
+  print(R)
+  print(RP)
   
   if (recalibrate %in% c("curr","cons")) {
     ra <- r0/R 
@@ -282,9 +285,19 @@ edata <- function(scenario, r0, recalibrate, data1, data2, rbreaks) {
   } else {
     ra = 1
   }
+  rdrink <- (sum(cf$pdrink*cf$pop)/sum(cf$pop))/(sum(data$pdrink*data$pop)/sum(data$pop))-1
+  rbing <- (sum(cf$pbing*cf$pdrink*cf$pop)/sum(cf$pdrink*cf$pop))/(sum(data$pbing*data$pdrink*data$pop)/sum(data$pdrink*data$pop))-1
+  rcons <- (sum(cf$mu*cf$pdrink*cf$pop)/sum(cf$pdrink*cf$pop))/(sum(data$mu*data$pdrink*data$pop)/sum(data$pdrink*data$pop))-1
+  
+  if (recalibrate == "curr") {
+    rdrink <- rdrink*R*RP
+  } else if (recalibrate == "cons") {
+    rcons <- rcons*R*RP
+  }
   
   cf <- cf %>% arrange(gender, agecat) # COUNTERFACTUAL EXPOSURE 
-  out = list(expdata = left_join(data, cf  %>% rename(alpha_cf = alpha, beta_cf = beta, pdrink_cf = pdrink, pform_cf = pform, pbing_cf = pbing, mu_cf = mu )), r = R, ra = ra)
+  out = list(expdata = left_join(data, cf  %>% rename(alpha_cf = alpha, beta_cf = beta, pdrink_cf = pdrink, pform_cf = pform, pbing_cf = pbing, mu_cf = mu)), 
+             r = R, ra = ra, rdrink = rdrink, rbing = rbing, rcons = rcons)
   return(out)
   
 }  
@@ -312,7 +325,11 @@ odata <- function(scenario, r0, recalibrate, bdm, bdf, lb, ub, data1, data2, dat
     outd = outdata %>% pivot_wider(names_from = metric, values_from = c(bod, abod, vbod)) %>% 
       mutate(bod_DALY =  bod_YLD + bod_YLL, abod_DALY = abod_YLD + abod_YLL, vbod_DALY = vbod_YLD + vbod_YLL),
     shiftexp = X,
-    R = edat$r*edat$ra
+    R = edat$r*edat$ra,
+    RA = edat$ra,
+    rdrink = edat$rdrink, 
+    rbing = edat$rbing, 
+    rcons = edat$rcons
   ) 
   return(loutdata)
 }  
