@@ -1,14 +1,14 @@
 ################################################################################################################################################################################
 # RESET ALCOHOL PROJECT                                                                                                                                                        #
 # IMPACT SIMULATOR - UI                                                                                                                                                        # 
-# v.1, 2026/09/24                                                                                                                                                              #
+# v.1.0, 2026/10/31                                                                                                                                                            #
 # annibale.cois@uct.ac.za                                                                                                                                                      #
 ################################################################################################################################################################################
 
 ui <- page_sidebar(
   title = div(
     class = "d-flex align-items-center justify-content-between w-100",
-          span(toupper("Avoidable burden of disease: scenario simulator"), style = "font-size: 130%;"),
+          span(toupper("Averted burden of disease: scenario simulator"), style = "font-size: 130%;"),
           tags$img(src = "logo_combined.png", height = "40px"),
   span(
     style = "float: right;",
@@ -16,31 +16,36 @@ ui <- page_sidebar(
     actionButton("show_about", label = NULL, icon = icon("circle-info"), class = "header-icon-btn")
   )
   ),
-  tags$head(tags$style(HTML("
-    .shiny-notification .progress-bar {
-      background-image: linear-gradient(45deg, rgba(255,255,255,.25) 25%, transparent 25%,
-        transparent 50%, rgba(255,255,255,.25) 50%, rgba(255,255,255,.25) 75%, transparent 75%);
-      background-size: 1rem 1rem;
-      animation: progress-stripes 1s linear infinite;
-    }
-    @keyframes progress-stripes {
-      from { background-position: 1rem 0; }
-      to   { background-position: 0 0; }
-    }
-    body::before {
-        content: 'EVALUATION';
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%) rotate(-30deg);
-        font-size: 8rem;
-        font-weight: bold;
-        color: rgba(0, 0, 0, 0.06);
-        pointer-events: none;
-        z-index: 9999;
-        white-space: nowrap;
+  tags$head(
+    tags$style(HTML("
+      .shiny-notification .progress-bar {
+        background-image: linear-gradient(45deg, rgba(255,255,255,.25) 25%, transparent 25%,
+          transparent 50%, rgba(255,255,255,.25) 50%, rgba(255,255,255,.25) 75%, transparent 75%);
+        background-size: 1rem 1rem;
+        animation: progress-stripes 1s linear infinite;
       }
-  "))
+      @keyframes progress-stripes {
+        from { background-position: 1rem 0; }
+        to   { background-position: 0 0; }
+      }
+    ")),
+    if (EVALUATION) {
+      tags$style(HTML("
+        body::before {
+            content: 'EVALUATION';
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 8rem;
+            font-weight: bold;
+            color: rgba(0, 0, 0, 0.06);
+            pointer-events: none;
+            z-index: 9999;
+            white-space: nowrap;
+          }
+      "))
+    }
   ),
   theme = theme_vs, 
   sidebar = sidebar(
@@ -70,7 +75,7 @@ ui <- page_sidebar(
       accordion_panel(
         "Scenario", value = "scenario", icon = icon("sliders"),
         helpText(
-          "Multiplier for consumption variables within each demographic stratum",
+          "Multipliers for consumption variables across population strata",
           br(), br(),
           tags$ul(
           tags$li(strong("PREV"),": prevalence of drinkers"), 
@@ -131,8 +136,7 @@ ui <- page_sidebar(
         col_widths = c(6, 6),
         card(
           card_header("Differences from observed exposure (including recalibration)"),
-          uiOutput("cons_summary_cards")#,
-          #uiOutput("chart_footer")
+          uiOutput("cons_summary_cards")
         ),
         card(
           card_header("Number of drinkers per level of consumption"),

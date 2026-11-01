@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+title: "IMPACTSIM"
+version: "1.0.0"
+date-released: 2026-01-11
+abstract: "This app simulates changes in burden of disease (deaths, YLL, YLD and DALYs) under hypothetical changes in population patterns of alcohol consumption."
+authors:
+  - family-names: "Cois"
+    given-names: "Annibale"
+    orcid: "https://orcid.org/0000-0002-7014-6510"  
+  - family-names: "Vellios"
+    given-names: "Nicole"
+    orcid: "https://orcid.org/0000-0003-1488-0179"    
+  - family-names: "Chikanya"
+    given-names: "Magnolia"
+    orcid: "https://orcid.org/0009-0004-7024-9255"      
+  - family-names: "Matzopoulos"
+    given-names: "Richard"
+    orcid: "https://orcid.org/0000-0001-9063-6210"      
+license: MIT
+repository-code: "https://github.com/AnnibaleCois/RESET-IMPACTSIM"

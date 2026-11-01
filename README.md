@@ -11,11 +11,12 @@
 
 ---
 
-## Avoidable Burden of Disease Simulator 
+## Averted Burden of Disease Simulator 
 
-A Shiny app for visualising the reduction in burden of disease (deaths, YLL, YLD and DALYs) under hypothetical alcohol-policy scenarios.
+A Shiny app for visualising changes in burden of disease (deaths, YLL, YLD and DALYs) under hypothetical changes in the population patterns of alcohol consumption in the South African adult population.
 
-Users specify scenario multipliers by gender and age group, run the simulation, and explore the results as an interactive chart and table.
+Users specify hypothetical changes by population strata, run the simulation, and explore the results as interactive charts and tables.
+
 ## Repository Structure
 
 ```
@@ -25,8 +26,8 @@ Users specify scenario multipliers by gender and age group, run the simulation, 
 ├── global.R       # Code executed at app start (shared across users)
 ├── ui.R           # User Interface
 ├── server.R       # Server
-├── functions.R    # Functions for pif calcualtion (used by Server)
-├── renv.lock      # pinned package versions
+├── functions.R    # Functions for pif calculations (used by Server)
+├── renv.lock      # Pinned package versions
 ├── renv/          # renv project infrastructure
 └── README.md
 ```
@@ -75,12 +76,12 @@ No manual `install.packages()` calls are needed — see **Getting started** belo
 If you use this application in your research, project, or publication, please cite it as follows:
 
 #### APA Style
-> Cois, A. (2026). *IMPACTSIM* (Version 1.0.0) [Computer software]. https://github.com/AnnibaleCois/RESET-IMPACTSIM
+> Cois A, Vellios N, Chikanya M, Matzopoulos R (2026). *IMPACTSIM* (Version 1.0.0) [Computer software]. https://github.com/AnnibaleCois/RESET-IMPACTSIM
 
 #### BibTeX
 ```bibtex
 @software{IMPACTSIM2026,
-  author = {Cois, Annibale},
+  author = {Cois, Annibale and Vellios, Nicole and Chikanya, MAgnolia and Matzopoulos, Richard},
   title = {{IMPACTSIM}},
   year = {2026},
   version = {1.0.0},
@@ -96,7 +97,7 @@ If you use this application in your research, project, or publication, please ci
   </a>
 </p>
 
-<p>Copyright &copy; <span id="current-year">2026</span> - Annibale Cois, University of Cape Town, <a href="mailto:annibale.cois@uct.ac.za"> annibale.cois@uct.ac.za</a></p>
+<p>Copyright &copy;2026-<span id="current-year">2026</span> Annibale Cois, University of Cape Town, <a href="mailto:annibale.cois@uct.ac.za"> annibale.cois@uct.ac.za</a></p>
 
 <p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the &quot;Software&quot;), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:</p>
 

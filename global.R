@@ -1,7 +1,7 @@
 ################################################################################################################################################################################
 # RESET ALCOHOL PROJECT                                                                                                                                                        #
 # IMPACT SIMULATOR - APP INITIALISATION                                                                                                                                        #
-# v.1, 2026/09/24                                                                                                                                                              #
+# v.1.0, 2026/10/31                                                                                                                                                            #
 # annibale.cois@uct.ac.za                                                                                                                                                      #
 ################################################################################################################################################################################
 
@@ -17,7 +17,7 @@ library(tidyr)
 # SETTINGS                                                                                                                                                                     # 
 ################################################################################################################################################################################
 
-IDIR <- "./data/CRA2/"     # DATA FOLDER (CRA2 = USES CRA2 RR FUNCTIONS; UPDATED = USES UPDATED RR FUNCTIONS)
+IDIR <- "./data/CRA2/"     # DATA FOLDER
 LB <- 0.03 ; UB <- 150     # INTEGRATION LIMITS [g/day]
 RRCAP <- 150               # CAP FOR RR FUNCTIONS
 BDM <- 60; BDF <- 48       # BINGE DRINKING CUTOFF [g/day] (MALES/FEMALES)
@@ -27,24 +27,24 @@ TOTAA <- 8.4*43590000      # TOTAL CONSUMPTION OF ABSOLUTE ALCOHOL IN POPULATION
 
 # LIST AND VARIABLES FOR INTERFACE 
 
-genders  <- c("Male", "Female")                       
+sexes  <- c("Male", "Female")                       
 agecats  <- c("15-24", "25-34", "35-44", "45-54", "55-64", "65+")              
 measures <- c(Deaths = "DEATH", YLL = "YLL", YLD = "YLD", DALY = "DALY")
-plot_cat <- c("Individual causes" = "cause", "Level 1 groups" = "cat1", "Level 2 groups" = "cat2", "Gender" = "gender", "Age" = "agecat")
-plot_group <- c("None" = "none", "Gender" = "gender", "Age" = "agecat", "Individual causes" = "cause", "Level 1 groups" = "cat1", "Level 2 groups" = "cat2")
-#plot_var <- c("Total burden" = "bod", "Attributable burden" = "abod", "Avoidable burden" = "vbod")
-plot_var <- c("Attributable burden" = "abod", "Avoidable burden" = "vbod")
-
+plot_cat <- c("Individual causes" = "cause", "Level 1 groups" = "cat1", "Level 2 groups" = "cat2", "Sex" = "sex", "Age" = "agecat")
+plot_group <- c("None" = "none", "Sex" = "sex", "Age" = "agecat", "Individual causes" = "cause", "Level 1 groups" = "cat1", "Level 2 groups" = "cat2")
+plot_var <- c("Attributable burden" = "abod", "Averted burden" = "vbod")
 
 RBREAKS <- data.frame(Female = c(0,20,40,60,Inf), Male = c(0,40,60,100,Inf))
 
 mult_cols <- c("curr", "bing", "Low_risk", "Moderate_risk", "High_risk", "Very_high_risk") 
 risk_cols <- mult_cols[3:6]
 names(mult_cols) <- c("PREV", "HED", "LR", "MR", "HR", "VR") 
-template <- expand.grid(agecat = agecats, gender = genders, stringsAsFactors = FALSE)[, c("gender", "agecat")]
+template <- expand.grid(agecat = agecats, sex = sexes, stringsAsFactors = FALSE)[, c("sex", "agecat")]
 template[c(mult_cols)] <- 1   # 1 = no change (baseline) for all seven columns
 
 footercontent <- ""
+
+EVALUATION <- FALSE # ADD (TRUE) OR HUDE (FALSE) THE WATERMARK 
 
 # THEME 
 
@@ -81,7 +81,7 @@ theme_vs <- bs_theme_update(
 
 defaultfill <- "#18bc9c"
 valueboxcolors <- c("#2C3E50","#18A999","#E8A33D","#5B4B8A")
-names(valueboxcolors) <- c("AVOIDABLE DEATHS","AVOIDABLE YLLS","AVOIDABLE YLDS","AVOIDABLE DALYS")
+names(valueboxcolors) <- c("AVERTED DEATHS","AVERTED YLLS","AVERTED YLDS","AVERTED DALYS")
 
 ################################################################################################################################################################################
 # APP INITIALISATION                                                                                                                                                           # 
@@ -90,13 +90,17 @@ names(valueboxcolors) <- c("AVOIDABLE DEATHS","AVOIDABLE YLLS","AVOIDABLE YLDS",
 source("./functions.R")                 # LOAD CUSTOM FUNCTIONS FOR PIF CALCULATIONS AND DATA MANAGEMENT
 load(paste0(IDIR, "APP_DATA.RData"))    # LOAD BASE DATA (EXPOSURE, BOD, PRE-CALCULATED PAF AND ABOD)
 
+# REFACTOR 
+
+DATA <- DATA %>% rename(sex = gender)
+
 # SPLIT DATA PER METRIC
 
-DATA1 <- DATA %>% filter(metric == "DEATH") %>% arrange(metric, gender, agecat)   # DEATHS 
-DATA2 <- DATA %>% filter(metric == "YLD") %>% arrange(metric, gender, agecat)   # YLD 
-DATA3 <- DATA %>% filter(metric == "YLL") %>% arrange(metric, gender, agecat)   # YLL 
+DATA1 <- DATA %>% filter(metric == "DEATH") %>% arrange(metric, sex, agecat)   # DEATHS 
+DATA2 <- DATA %>% filter(metric == "YLD") %>% arrange(metric, sex, agecat)   # YLD 
+DATA3 <- DATA %>% filter(metric == "YLL") %>% arrange(metric, sex, agecat)   # YLL 
 
-BASELINE_EXPOSURE <- DATA1[, c("gender","agecat","alpha","beta","pdrink","pbing","mu")]
+BASELINE_EXPOSURE <- DATA1[, c("sex","agecat","alpha","beta","pdrink","pbing","mu")]
 BASELINE_EXPOSURE <- BASELINE_EXPOSURE [!duplicated(BASELINE_EXPOSURE),]
 
 # SUBSTITUTE BASE PAFs WITH APPROXIMATED CALCULATED WITH THE SAME METHOD AS IN THE APP (APPROXIMATE INTEGRATION)

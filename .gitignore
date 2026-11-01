@@ -8,8 +8,7 @@
 # Rendered README preview
 README.html
 
-
-# RStudio project files (optional: keep .Rproj if you want to share the project setup)
+# RStudio project files 
 *.Rproj
 
 # Environment and secrets
@@ -48,9 +47,8 @@ Thumbs.db
 *.utf8.md
 .Rproj.user
 
-# Local data and outputs (adjust to your project)
+# Local data and outputs 
 data/raw/
-data/private/
 *.csv.gz
 *.sqlite
 *.sqlite3

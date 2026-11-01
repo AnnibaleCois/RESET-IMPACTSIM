@@ -1,7 +1,7 @@
 ################################################################################################################################################################################
 # RESET ALCOHOL PROJECT                                                                                                                                                        #
 # IMPACT SIMULATOR - SERVER                                                                                                                                                    # 
-# v.1, 2026/09/24                                                                                                                                                              #
+# v.1.0, 2026/10/31                                                                                                                                                            #
 # annibale.cois@uct.ac.za                                                                                                                                                      #
 ################################################################################################################################################################################
 
@@ -16,7 +16,7 @@ server <- function(input, output, session) {
       class = "display",
       thead(
         tr(
-          th(rowspan = 2, "Gender"),
+          th(rowspan = 2, "Sex"),
           th(rowspan = 2, "Age"),
           th(rowspan = 2, "PREV"),
           th(rowspan = 2, "HED"),
@@ -80,18 +80,18 @@ server <- function(input, output, session) {
   observeEvent(input$upload, {
     up <- tryCatch(read.csv(input$upload$datapath, stringsAsFactors = FALSE),
                    error = function(e) NULL)
-    ok <- !is.null(up) && all(c("gender", "agecat", mult_cols) %in% names(up)) &&
+    ok <- !is.null(up) && all(c("sex", "agecat", mult_cols) %in% names(up)) &&
       nrow(up) == nrow(template)
     in_range <- ok && all(vapply(up[c(mult_cols)], function(x)
       is.numeric(x) && all(x >= 0 & x <= 1, na.rm = FALSE), logical(1)))
     if (ok && !isTRUE(in_range)) {
       showNotification("All multipliers in the CSV must be numbers between 0 and 1.", type = "error")
     } else if (!ok) {
-      showNotification(sprintf("CSV needs columns gender, agecat, %s and %d rows.",
+      showNotification(sprintf("CSV needs columns sex, agecat, %s and %d rows.",
                                paste(c(mult_cols), collapse = ", "), nrow(template)),
                        type = "error")
     } else {
-      up <- up[, c("gender", "agecat", mult_cols)]
+      up <- up[, c("sex", "agecat", mult_cols)]
       params(up); replaceData(proxy, up, resetPaging = FALSE, rownames = FALSE)
     }
   })
@@ -112,8 +112,7 @@ server <- function(input, output, session) {
         odata(scenario = params(), r0 = input$R0, recalibrate = input$RECALIBRATE, bdm = BDM, bdf = BDF, lb = LB, ub = UB, data1 = DATA1, data2 = DATA2, data3 = DATA3, gl = GL, 
               burden = input$source, rbreaks = RBREAKS),
         error = function(e) {
-          showNotification(paste("odata() failed:", conditionMessage(e)),
-                           type = "error", duration = NULL)
+          showNotification(paste("odata() failed:", conditionMessage(e)), type = "error", duration = NULL)
           NULL
         }
       )
@@ -140,7 +139,7 @@ server <- function(input, output, session) {
       layout_columns(
         fill = FALSE,
         !!!lapply(names(tot), function(m) {
-          title <- paste0("AVOIDABLE ",strsplit(m, "_")[[1]][2],"S")
+          title <- paste0("AVERTED ",strsplit(m, "_")[[1]][2],"S")
           value_box(title = title,
                     value = "-",
                     theme = value_box_theme(bg = valueboxcolors[title])
@@ -158,13 +157,12 @@ server <- function(input, output, session) {
       layout_columns(
         fill = FALSE,
         !!!lapply(names(tot), function(m) {
-        title <- paste0("AVOIDABLE ",strsplit(m, "_")[[1]][2],"S")
+        title <- paste0("AVERTED ",strsplit(m, "_")[[1]][2],"S")
         value_box(title = title,
                   value = tagList(
                           span(format(round(tot[[m]]), big.mark = "\u2009")),
-                          #span(paste0("Total burden: ",tot2[[m]]), style = "font-size: 30%; opacity: 0.8; "),
                           span(paste0("Attributable burden: ",tot1[[m]]), style = "font-size: 30%; opacity: 0.8; "),
-                          span(paste0("Avoidable burden [%]: ", sprintf("%.1f",round(tot[[m]]/tot1[[m]]*100,1))), style = "font-size: 30%; opacity: 0.8; ")
+                          span(paste0("Averted burden [%]: ", sprintf("%.1f",round(tot[[m]]/tot1[[m]]*100,1))), style = "font-size: 30%; opacity: 0.8; ")
                   ),
                   theme = value_box_theme(bg = valueboxcolors[title])
         )
@@ -228,6 +226,7 @@ server <- function(input, output, session) {
   })
   
   # NOTE BELOW THE CHART  
+    
     output$chart_footer <- renderUI({
       lbl <- run_label()
       txt <- if (is.null(lbl)) "No simulation run yet" else paste("Burden source:", lbl)
@@ -240,7 +239,8 @@ server <- function(input, output, session) {
     d <- res()$outd
     req(d)
     d <- d %>% select(-c(bod_DEATH, bod_YLD, bod_YLL, bod_DALY))
-    colnames(d) <- c("Gender","Age","Group 1","Group 2", "Cause","Attributable\nDeaths","Attributable\nYLD","Attributable\nYLL","Avoidable\nDeaths","Avoidable\nYLL","Avoidable\nYLD","Attributable\nDALY","Avoidable\nDALY")
+    colnames(d) <- c("Sex","Age","Group 1","Group 2", "Cause","Attributable\nDeaths","Attributable\nYLDs","Attributable\nYLLs","Averted\nDeaths","Averted\nYLLs",
+                     "Averted\nYLDs","Attributable\nDALYs","Averted\nDALYs")
     d <- d[,c(1:8,12,9:11,13)]
     datatable(d, rownames = FALSE, filter = "top") |>
       formatRound(intersect(measures, names(d)), 0)
@@ -253,20 +253,20 @@ server <- function(input, output, session) {
   
   # CONSUMPTION SUMMARY 
   
-  risk_category_props <- function(alpha, beta, gender) {
-    bounds <- t(RBREAKS[gender][2:5,1])
+  risk_category_props <- function(alpha, beta, sex) {
+    bounds <- t(RBREAKS[sex][2:5,1])
     diff(c(0, pgamma(bounds, shape = alpha, rate = beta)))
   } # proportion of drinkers in each risk category, from Gamma(alpha, beta)
   
   cons_summary <- reactive({
     d <- res()$shiftexp
     req(d)
-    before_mat <- t(mapply(risk_category_props, BASELINE_EXPOSURE$alpha, BASELINE_EXPOSURE$beta, BASELINE_EXPOSURE$gender))
+    before_mat <- t(mapply(risk_category_props, BASELINE_EXPOSURE$alpha, BASELINE_EXPOSURE$beta, BASELINE_EXPOSURE$sex))
     colnames(before_mat) <- mult_cols[3:6]
-    merged <- dplyr::left_join(BASELINE_EXPOSURE, d, by = c("gender", "agecat"))
-    after_mat <- t(mapply(risk_category_props, merged$alpha_cf, merged$beta_cf, merged$gender))
+    merged <- dplyr::left_join(BASELINE_EXPOSURE, d, by = c("sex", "agecat"))
+    after_mat <- t(mapply(risk_category_props, merged$alpha_cf, merged$beta_cf, merged$sex))
     colnames(after_mat) <- mult_cols[3:6]
-    list(meta = BASELINE_EXPOSURE[c("gender", "agecat", "pdrink")], before = before_mat, after = after_mat)
+    list(meta = BASELINE_EXPOSURE[c("sex", "agecat", "pdrink")], before = before_mat, after = after_mat)
   })
   
   output$cons_summary_cards <- renderUI({
@@ -331,7 +331,7 @@ server <- function(input, output, session) {
   # PLOT DISTRIBUTION  
   
   output$hist <- renderPlotly({
-    d <- res()$shiftexp[,c("gender","agecat","alpha_cf","beta_cf","pdrink_cf","alpha","beta","pdrink","pop")]
+    d <- res()$shiftexp[,c("sex","agecat","alpha_cf","beta_cf","pdrink_cf","alpha","beta","pdrink","pop")]
     req(d)
     w <- d$pop*d$pdrink 
     w_cf <- d$pop*d$pdrink_cf
@@ -339,7 +339,7 @@ server <- function(input, output, session) {
     d$pdrink_cf <- NULL
     
     binwidth <- 12
-    breaks <- seq(0, 156, by = binwidth)   # 156 = first multiple of 12 above 150
+    breaks <- seq(0, 156, by = binwidth) 
     lo <- head(breaks, -1)
     hi <- tail(breaks, -1)
     mid <- (lo + hi) / 2
@@ -376,8 +376,8 @@ server <- function(input, output, session) {
       title = "Help",
       tagList(
         h4("About this app"),
-        p("This app simulates the avoidable burden of disease (deaths, YLL, YLD and DALYs)",
-          "under hypothetical changes in the alcohol exposure of the South African population, and lets you explore the results",
+        p("This app simulates changes in the burden of disease (deaths, YLL, YLD and DALYs)",
+          "in response to hypothetical changes in the alcohol exposure of the South African population, and lets you explore the results",
           "as a chart and table."),
         
         h4("1. Simulation settings"),
@@ -394,7 +394,7 @@ server <- function(input, output, session) {
         p("These settings apply to the whole simulation."),
         
         h4("2. Scenario multipliers"),
-        p("The ", strong("Scenario multipliers"), " table has one row per gender and age", "group, with six columns:"),
+        p("The ", strong("Scenario multipliers"), " table has one row per sex and age", "group, with six columns:"),
         tags$ul(
           tags$li(strong("PREV"), " — multiplier for the prevalence of drinkers."),
           tags$li(strong("HED"), " — multiplier for the prevalence of heavy episodic drinkers among drinkers."),
@@ -403,18 +403,18 @@ server <- function(input, output, session) {
           tags$li(strong("HR"), " — multiplier for average daily consumption among high risk individuals."),
           tags$li(strong("VR"), " — multiplier for average daily consumption among very high risk individuals.")
         ),
-        p("All values must be between 0 and 1. A value of 1 means no change from the observed distribution: for example, 0.8 means a 20% reduction."),
+        p("All values must be between 0 and 1, with a value of 1 meaning no change from the observed distribution. A value of 0.8, for example, means a 20% reduction."),
         p("Risk categories are defined based on average daily alcohol consumption according to standard World Health Organization cutoffs: "),
         tags$ul(
-          tags$li("Low risk:", " ≤20 g/day (females) and ≤40 g/day (males)"),
-          tags$li("Moderate risk:", " [20-40) g/day (females) and [40-60) g/day (males)"),
-          tags$li("High risk:", " (40-60] g/day (females) and (60-100] g/day (males)"),
-          tags$li("Very high risk:", " >60 g/day (females) and > 100 g/day (males)")
+          tags$li(strong("Low risk:"), " ≤20 g/day (females) and ≤40 g/day (males)"),
+          tags$li(strong("Moderate risk:"), " [20-40) g/day (females) and [40-60) g/day (males)"),
+          tags$li(strong("High risk:"), " (40-60] g/day (females) and (60-100] g/day (males)"),
+          tags$li(strong("Very high risk:"), " >60 g/day (females) and > 100 g/day (males)")
         ),
-        p("Double-click a cell to edit it directly, or use ", strong("Set column to value"),"to apply the same number to an entire column at once."),
-        p(strong("Reset to 1"), " restores all multipliers to baseline (1 = no change)",
-          strong("Save scenario"), " downloads the current table as a CSV",
-          strong("Load scenario"), " uploads a previously saved CSV"),
+        p("Double-click a cell to edit it directly, or use ", strong("Set column to value"),"to apply the same number to an entire column at once.",
+        strong("Reset to 1"), " restores all multipliers to baseline (1 = no change).",
+        strong("Save scenario"), " downloads the current table as a CSV.",
+        strong("Load scenario"), " uploads a previously saved CSV."),
         
         h4("3. Running the simulation"),
         p("Once the scenario table is set up, click ", strong("Run simulation"), ".",
@@ -423,18 +423,18 @@ server <- function(input, output, session) {
           "until you run it again."),
         
         h4("4. Reading the results"),
-        p("The four boxes at the top show the total avoidable ", strong("deaths"), ", ",
+        p("The four boxes at the top show the total averted ", strong("deaths"), ", ",
           strong("YLL"), " (years of life lost), ", strong("YLD"),
           " (years lived with disability) and ", strong("DALYs"),
           " (disability-adjusted life years) for the scenario, summed across all",
           "diseases. They show a dash until the first simulation has run."),
         p(strong("Chart tab"), ": an interactive bar chart of the top diseases for a",
           "chosen measure (deaths, YLL, YLD or DALY). Use the dropdowns to change the",
-          "measure, break the chart down by gender, age group or disease, or adjust how many",
+          "measure, break the chart down by sex, age group or disease, or adjust how many",
           "diseases are shown. Hover over a bar for its exact value; click a legend",
           "entry to show or hide a group."),
         p(strong("Table tab"), ": the full results as a searchable, sortable table, with"," a button to download it as a CSV."),
-        
+        p(strong("Assumed exposure tab"), ": a summary of the differences between the simulated",tags$sup("*")," and the observed exposure."),
         h4("Tips"),
         tags$ul(
           tags$li("Use ", strong("Set column to value"), " to quickly test an across-the-board",
@@ -444,7 +444,11 @@ server <- function(input, output, session) {
                   "later or share it with others."),
           tags$li("If the results look empty, check that ", strong("Run simulation"),
                   " has been clicked after your most recent edits.")
-        )
+        ),
+        br(),
+        
+        p(tags$sup("*"),tags$em(" The simulated exposure takes into account the values in the scenario multipliers table to the extent it is possible within epidemiological constraints.",
+          "In case of irreconciliable values, the distribution across risk categories might differ from the distribution implied by the table."))
       ),
       easyClose = TRUE,
       footer = modalButton("Close"),
@@ -457,7 +461,7 @@ server <- function(input, output, session) {
       title = "About",
       tagList(
         h4("About"),
-        p("This app was developed by Annibale Cois & Magnolia Chikanya, School of Public Health, University of Cape Town, as part of the ",
+        p("This app was developed by Annibale Cois, Nicole Vellios, Magnolia Chikanya and Richard Matzopoulos, School of Public Health, University of Cape Town, as part of the ",
         tags$a(
           "RESET Alcohol Initiative", 
           href = "https://www.vitalstrategies.org/issues/alcohol-policy/reset-alcohol-initiative/", 
@@ -466,7 +470,7 @@ server <- function(input, output, session) {
         ),"."
         ),
         h4("Methodology"),
-        p("The avoidable burden estimates generated by this App are based on the comparative Risk Assessment (CRA) methodology,",
+        p("The averted burden estimates generated by this App are based on the comparative Risk Assessment (CRA) methodology,",
           "as implemented in the Second South African Comparative Risk Assessment Study (SACRA2)."),
         p("The CRA methodology estimates the contribution of individual risk factors to the burden of disease (quantified in terms of number of deaths,",
           " YLLs, YLDs and DALYs) by comparing the burden due to the observed exposure with an hypothetical counterfactual scenario characterised by a different",
@@ -476,8 +480,6 @@ server <- function(input, output, session) {
           span(" Lives saved and disease burden avoidable through reduced alcohol consumption in South Africa.", style = "font-style: italic;"),
           span("Cape Town: University of Cape Town.", style = "font-style: italic;")),
         h4("Acknowledgements"),
-        p(strong("Dr Kevin D. Shield"), " Population & Global Health Institute (CAMH), for providing the updated R code to implement relative risk functions", 
-          "for alcohol attributable diseases."),
         p(strong("Vital Strategies Inc."), " which funded the development of the application and the underlying study (subgrant agreement VS00036959, 15/05/2026)"),
         
         h4("Contact"),
@@ -507,7 +509,6 @@ server <- function(input, output, session) {
     ))
   })
 
-  
 }
 
 
