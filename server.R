@@ -492,7 +492,9 @@ server <- function(input, output, session) {
         h4("Citation"),
         p("If you use this app or its results, please cite:"),
         tags$blockquote(
-          "Annibale Cois, Magnolia Chikanya (2026). RESET-IMPACTSIM. Version 1.0. [URL/DOI]."
+          "Annibale Cois, Magnolia Chikanya (2026). RESET-IMPACTSIM. Version 1.0.0.",br(),
+          "URL: ",
+          a(href = "https://github.com/AnnibaleCois/RESET-IMPACTSIM", "https://github.com/AnnibaleCois/RESET-IMPACTSIM", target = "_blank")
         ),
         
         h4("License"),
