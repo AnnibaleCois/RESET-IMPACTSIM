@@ -46,7 +46,7 @@ Thumbs.db
 *.knit.md
 *.utf8.md
 .Rproj.user
-.html
+README.html
 
 # Local data and outputs 
 data/raw/
