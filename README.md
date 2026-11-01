@@ -11,6 +11,9 @@
 
 ---
 
+[![DOI](https://zenodo.org/badge/1387008282.svg)](https://doi.org/10.5281/zenodo.23855384)
+
+
 ## Averted Burden of Disease Simulator 
 
 A Shiny app for visualising changes in burden of disease (deaths, YLL, YLD and DALYs) under hypothetical changes in the population patterns of alcohol consumption in the South African adult population.
@@ -76,7 +79,7 @@ No manual `install.packages()` calls are needed — see **Getting started** belo
 If you use this application in your research, project, or publication, please cite it as follows:
 
 #### APA Style
-> Cois A, Vellios N, Chikanya M, Matzopoulos R (2026). *IMPACTSIM* (Version 1.0.0) [Computer software]. https://github.com/AnnibaleCois/RESET-IMPACTSIM
+> Cois A, Vellios N, Chikanya M, Matzopoulos R (2026). *IMPACTSIM* (Version 1.0.0) [Computer software]. DOI: 10.5281/zenodo.23855384. https://github.com/AnnibaleCois/RESET-IMPACTSIM
 
 #### BibTeX
 ```bibtex
@@ -85,6 +88,7 @@ If you use this application in your research, project, or publication, please ci
   title = {{IMPACTSIM}},
   year = {2026},
   version = {1.0.0},
+  doi = {10.5281/zenodo.23855384},
   url = {[https://github.com/AnnibaleCois/RESET-IMPACTSIM](https://github.com/AnnibaleCois/RESET-IMPACTSIM)}
 }
 ```
